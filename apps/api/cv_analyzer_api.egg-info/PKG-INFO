@@ -1,0 +1,13 @@
+Metadata-Version: 2.4
+Name: cv-analyzer-api
+Version: 0.1.0
+Summary: Backend API for CV Analyzer using FastAPI and LangChain
+Requires-Python: >=3.11
+Requires-Dist: fastapi
+Requires-Dist: uvicorn[standard]
+Requires-Dist: langchain
+Requires-Dist: langchain-openai
+Requires-Dist: pydantic
+Requires-Dist: python-dotenv
+Requires-Dist: pdfplumber
+Requires-Dist: python-docx

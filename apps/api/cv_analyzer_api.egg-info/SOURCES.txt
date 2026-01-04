@@ -1,0 +1,9 @@
+README.md
+pyproject.toml
+app/config.py
+app/main.py
+cv_analyzer_api.egg-info/PKG-INFO
+cv_analyzer_api.egg-info/SOURCES.txt
+cv_analyzer_api.egg-info/dependency_links.txt
+cv_analyzer_api.egg-info/requires.txt
+cv_analyzer_api.egg-info/top_level.txt
