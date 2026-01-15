@@ -7,6 +7,8 @@ dependencies = [
   "langchain-openai",
   "langchain-community",  
   "langchain-core",
+  "langchain-ollama",  # For Ollama integration
+  "langchain-google-genai",  # For Gemini integration
   
   # LLM Providers (optional)
   "ollama",  # For local development
