@@ -11,6 +11,23 @@ router = APIRouter()
 UPLOAD_DIR = Path("uploads")
 UPLOAD_DIR.mkdir(exist_ok=True)
 
+def get_file_type(file: UploadFile) -> str:
+    """Extract file type from filename or content_type"""
+    if file.filename:
+        ext = file.filename.split(".")[-1].lower()
+        if ext in ["pdf", "docx", "doc"]:
+            return ext
+    
+    if file.content_type:
+        mime_to_ext = {
+            "application/pdf": "pdf",
+            "application/msword": "doc",
+            "application/vnd.openxmlformats-officedocument.wordprocessingml.document": "docx",
+        }
+        return mime_to_ext.get(file.content_type, "unknown")
+    
+    return "unknown"
+    
 @router.post("/analyze", response_model=CVAnalysisResponse)
 async def analyze_cv(
     file: UploadFile = File(...),
@@ -22,7 +39,9 @@ async def analyze_cv(
             content = await file.read()
             await f.write(content)
         parser = CVParser()
-        file_type = file.content_type.split("/")[1].lower() if file.content_type else file.filename.split(".")[-1].lower()
+        file_type = get_file_type(file)
+        if not parser.validate_file_type(file_type):
+            raise HTTPException(status_code=400, detail="Unsupported file type")
         cv_text = await parser.parse_file(str(file_path), file_type)
 
         if not cv_text:
