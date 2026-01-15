@@ -59,7 +59,6 @@ class CVAnalyzer:
     ) -> CVAnalysisResponse:
         try:
             from langchain_ollama import ChatOllama
-            from langchain_core.output_parsers import PydanticOutputParser
             from langchain_core.prompts import ChatPromptTemplate
         except ImportError:
             raise ImportError("langchain-ollama package is required for development")
@@ -70,13 +69,10 @@ class CVAnalyzer:
                 temperature=0.3,
             )
         
-        parser = PydanticOutputParser(pydantic_object=CVAnalysisOutput)
-        
         prompt_template = ChatPromptTemplate.from_messages([
             ("system", """You are an expert CV analyzer. Analyze the provided CV and extract structured information.
 Respond in English only, regardless of the CV language.
-
-{format_instructions}"""),
+Return your response as valid JSON matching the required schema."""),
             ("human", """Analyze this CV and extract the following information:
 - Skills and competencies
 - Work experience (title, company, duration)
@@ -94,14 +90,14 @@ CV Content:
         if job_description:
             job_description_section = f"\n\nJob Description:\n{job_description}\n\nPlease provide a match score (0-1) based on how well the CV matches this job description."
         
-        # LangChain pipe: prompt -> LLM -> structured parser
-        chain = prompt_template | self._ollama_llm | parser
-        
         try:
+            # Use with_structured_output for better compatibility with Ollama
+            structured_llm = self._ollama_llm.with_structured_output(CVAnalysisOutput)
+            chain = prompt_template | structured_llm
+            
             result: CVAnalysisOutput = await chain.ainvoke({
                 "cv_text": cv_text,
                 "job_description_section": job_description_section,
-                "format_instructions": parser.get_format_instructions()
             })
             
             return CVAnalysisResponse(
@@ -116,10 +112,12 @@ CV Content:
                 error=None
             )
         except Exception as e:
+            import traceback
+            error_msg = f"Analysis failed: {str(e)}\n{traceback.format_exc()}"
             return CVAnalysisResponse(
                 success=False,
                 extracted_text=cv_text,
-                error=f"Analysis failed: {str(e)}"
+                error=error_msg
             )
     
     async def _analyze_with_gemini(
@@ -129,7 +127,6 @@ CV Content:
     ) -> CVAnalysisResponse:
         try:
             from langchain_google_genai import ChatGoogleGenerativeAI
-            from langchain_core.output_parsers import PydanticOutputParser
             from langchain_core.prompts import ChatPromptTemplate
         except ImportError:
             raise ImportError("langchain-google-genai package is required for production")
@@ -141,13 +138,10 @@ CV Content:
                 temperature=0.3,
             )
         
-        parser = PydanticOutputParser(pydantic_object=CVAnalysisOutput)
-        
         prompt_template = ChatPromptTemplate.from_messages([
             ("system", """You are an expert CV analyzer. Analyze the provided CV and extract structured information.
 Respond in English only, regardless of the CV language.
-
-{format_instructions}"""),
+Return your response as valid JSON matching the required schema."""),
             ("human", """Analyze this CV and extract the following information:
 - Skills and competencies
 - Work experience (title, company, duration)
@@ -165,14 +159,14 @@ CV Content:
         if job_description:
             job_description_section = f"\n\nJob Description:\n{job_description}\n\nPlease provide a match score (0-1) based on how well the CV matches this job description."
         
-        # LangChain pipe: prompt -> LLM -> structured parser
-        chain = prompt_template | self._gemini_llm | parser
-        
         try:
+            # Use with_structured_output for better compatibility
+            structured_llm = self._gemini_llm.with_structured_output(CVAnalysisOutput)
+            chain = prompt_template | structured_llm
+            
             result: CVAnalysisOutput = await chain.ainvoke({
                 "cv_text": cv_text,
                 "job_description_section": job_description_section,
-                "format_instructions": parser.get_format_instructions()
             })
             
             return CVAnalysisResponse(
@@ -187,8 +181,10 @@ CV Content:
                 error=None
             )
         except Exception as e:
+            import traceback
+            error_msg = f"Analysis failed: {str(e)}\n{traceback.format_exc()}"
             return CVAnalysisResponse(
                 success=False,
                 extracted_text=cv_text,
-                error=f"Analysis failed: {str(e)}"
+                error=error_msg
             )

@@ -54,7 +54,13 @@ async def analyze_cv(
         os.remove(file_path)
         return result
 
-    except Exception as e:
-        if file_path.exists():
+    except HTTPException:
+        if 'file_path' in locals() and file_path.exists():
             os.remove(file_path)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise
+    except Exception as e:
+        import traceback
+        error_detail = f"{str(e)}\n{traceback.format_exc()}"
+        if 'file_path' in locals() and file_path.exists():
+            os.remove(file_path)
+        raise HTTPException(status_code=500, detail=error_detail)
