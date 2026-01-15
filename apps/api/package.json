@@ -1,0 +1,12 @@
+{
+  "name": "cv-analyzer-api",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": ".venv/bin/python -m uvicorn app.main:app --reload --host 0.0.0.0 --port 8000",
+    "build": "echo 'Python project - no build step needed'",
+    "lint": "echo 'Python linting not configured'",
+    "check-types": "echo 'Python type checking not configured'"
+  }
+}
+
