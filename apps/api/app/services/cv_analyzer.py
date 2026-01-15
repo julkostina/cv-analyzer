@@ -1,12 +1,45 @@
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, List
+from pydantic import BaseModel, Field
 from app.config import settings
 from app.models import CVAnalysisRequest, CVAnalysisResponse
+
+
+# Pydantic model for structured LLM output
+class CVAnalysisOutput(BaseModel):
+    """Structured output schema for CV analysis"""
+    analysis: Optional[Dict[str, Any]] = Field(
+        None, 
+        description="Analysis summary with strengths, weaknesses, and overall assessment"
+    )
+    skills: Optional[List[str]] = Field(
+        None, 
+        description="List of skills extracted from the CV"
+    )
+    experience: Optional[List[Dict[str, Any]]] = Field(
+        None, 
+        description="List of work experience entries with title, company, duration"
+    )
+    education: Optional[List[Dict[str, Any]]] = Field(
+        None, 
+        description="List of education entries with degree, institution, year"
+    )
+    match_score: Optional[float] = Field(
+        None, 
+        ge=0, 
+        le=1, 
+        description="Match score between CV and job description (0-1)"
+    )
+    recommendations: Optional[List[str]] = Field(
+        None, 
+        description="List of recommendations for improving the CV"
+    )
+
 
 class CVAnalyzer:
     
     def __init__(self):
-        self._ollama = None
-        self._gemini_model = None
+        self._ollama_llm = None
+        self._gemini_llm = None
     
     async def analyze_cv(
         self, 
@@ -15,53 +48,79 @@ class CVAnalyzer:
     ) -> CVAnalysisResponse:
         
         if settings.environment == "development":
-            result =  await self._analyze_with_ollama(cv_text, request.job_description if request else None)
+            return await self._analyze_with_ollama(cv_text, request.job_description if request else None)
         else:
-            result =  await self._analyze_with_gemini(cv_text, request.job_description if request else None)
-        return CVAnalysisResponse(
-            success=True,
-            extracted_text=result['extracted_text'],
-            analysis=result['analysis'],
-            skills=result['skills'],
-            experience=result['experience'],
-            education=result['education'],
-            match_score=result['match_score'],
-            recommendations=result['recommendations'],
-            
-        )
+            return await self._analyze_with_gemini(cv_text, request.job_description if request else None)
+    
     async def _analyze_with_ollama(
         self, 
         cv_text: str, 
         job_description: Optional[str] = None
     ) -> CVAnalysisResponse:
         try:
-            import ollama 
+            from langchain_ollama import ChatOllama
+            from langchain_core.output_parsers import PydanticOutputParser
+            from langchain_core.prompts import ChatPromptTemplate
         except ImportError:
-            raise ImportError("ollama package is required for development")
+            raise ImportError("langchain-ollama package is required for development")
         
-        prompt = f"Analyze this CV:\n{cv_text}"
+        if not self._ollama_llm:
+            self._ollama_llm = ChatOllama(
+                model="llama3.2:3b",
+                temperature=0.3,
+            )
+        
+        parser = PydanticOutputParser(pydantic_object=CVAnalysisOutput)
+        
+        prompt_template = ChatPromptTemplate.from_messages([
+            ("system", """You are an expert CV analyzer. Analyze the provided CV and extract structured information.
+Respond in English only, regardless of the CV language.
+
+{format_instructions}"""),
+            ("human", """Analyze this CV and extract the following information:
+- Skills and competencies
+- Work experience (title, company, duration)
+- Education (degree, institution, year)
+- Overall analysis (summary, strengths, weaknesses)
+- Match score (0-1) if job description is provided
+- Recommendations for improvement
+
+CV Content:
+{cv_text}
+{job_description_section}""")
+        ])
+        
+        job_description_section = ""
         if job_description:
-            prompt += f"\n\nJob description:\n{job_description}"
+            job_description_section = f"\n\nJob Description:\n{job_description}\n\nPlease provide a match score (0-1) based on how well the CV matches this job description."
         
-        response = ollama.chat(
-            model='llama3.2:3b',
-            messages=[{
-                'role': 'user',
-                'content': prompt
-            }]
-        )
+        # LangChain pipe: prompt -> LLM -> structured parser
+        chain = prompt_template | self._ollama_llm | parser
         
-        return CVAnalysisResponse(
-            success=True,
-            extracted_text=response.messages,
-            analysis=None,
-            skills=None,
-            experience=None,
-            education=None,
-            match_score=None,
-            recommendations=None,
-            error=None
-        )
+        try:
+            result: CVAnalysisOutput = await chain.ainvoke({
+                "cv_text": cv_text,
+                "job_description_section": job_description_section,
+                "format_instructions": parser.get_format_instructions()
+            })
+            
+            return CVAnalysisResponse(
+                success=True,
+                extracted_text=cv_text,
+                analysis=result.analysis,
+                skills=result.skills,
+                experience=result.experience,
+                education=result.education,
+                match_score=result.match_score,
+                recommendations=result.recommendations,
+                error=None
+            )
+        except Exception as e:
+            return CVAnalysisResponse(
+                success=False,
+                extracted_text=cv_text,
+                error=f"Analysis failed: {str(e)}"
+            )
     
     async def _analyze_with_gemini(
         self, 
@@ -69,28 +128,67 @@ class CVAnalyzer:
         job_description: Optional[str] = None
     ) -> CVAnalysisResponse:
         try:
-            import google.generativeai as genai  
+            from langchain_google_genai import ChatGoogleGenerativeAI
+            from langchain_core.output_parsers import PydanticOutputParser
+            from langchain_core.prompts import ChatPromptTemplate
         except ImportError:
-            raise ImportError("google-generativeai package is required for production")
+            raise ImportError("langchain-google-genai package is required for production")
         
-        if not self._gemini_model:
-            genai.configure(api_key=settings.gemini_api_key)
-            self._gemini_model = genai.GenerativeModel('gemini-1.5-flash')
+        if not self._gemini_llm:
+            self._gemini_llm = ChatGoogleGenerativeAI(
+                model="gemini-1.5-flash",
+                google_api_key=settings.gemini_api_key,
+                temperature=0.3,
+            )
         
-        prompt = f"Analyze this CV:\n{cv_text}"
+        parser = PydanticOutputParser(pydantic_object=CVAnalysisOutput)
+        
+        prompt_template = ChatPromptTemplate.from_messages([
+            ("system", """You are an expert CV analyzer. Analyze the provided CV and extract structured information.
+Respond in English only, regardless of the CV language.
+
+{format_instructions}"""),
+            ("human", """Analyze this CV and extract the following information:
+- Skills and competencies
+- Work experience (title, company, duration)
+- Education (degree, institution, year)
+- Overall analysis (summary, strengths, weaknesses)
+- Match score (0-1) if job description is provided
+- Recommendations for improvement
+
+CV Content:
+{cv_text}
+{job_description_section}""")
+        ])
+        
+        job_description_section = ""
         if job_description:
-            prompt += f"\n\nJob description:\n{job_description}"
+            job_description_section = f"\n\nJob Description:\n{job_description}\n\nPlease provide a match score (0-1) based on how well the CV matches this job description."
         
-        response = self._gemini_model.generate_content(prompt)
+        # LangChain pipe: prompt -> LLM -> structured parser
+        chain = prompt_template | self._gemini_llm | parser
         
-        return CVAnalysisResponse(
-            success=True,
-            extracted_text=response.text,
-            analysis=None,
-            skills=None,
-            experience=None,
-            education=None,
-            match_score=None,
-            recommendations=None,
-            error=None
-        )
+        try:
+            result: CVAnalysisOutput = await chain.ainvoke({
+                "cv_text": cv_text,
+                "job_description_section": job_description_section,
+                "format_instructions": parser.get_format_instructions()
+            })
+            
+            return CVAnalysisResponse(
+                success=True,
+                extracted_text=cv_text,
+                analysis=result.analysis,
+                skills=result.skills,
+                experience=result.experience,
+                education=result.education,
+                match_score=result.match_score,
+                recommendations=result.recommendations,
+                error=None
+            )
+        except Exception as e:
+            return CVAnalysisResponse(
+                success=False,
+                extracted_text=cv_text,
+                error=f"Analysis failed: {str(e)}"
+            )
