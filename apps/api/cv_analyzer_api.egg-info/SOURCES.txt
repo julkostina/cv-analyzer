@@ -1,7 +1,16 @@
 README.md
 pyproject.toml
+app/__init__.py
 app/config.py
 app/main.py
+app/models/__init__.py
+app/models/cv_models.py
+app/routers/__init__.py
+app/routers/cv_router.py
+app/services/__init__.py
+app/services/cv_analyzer.py
+app/services/cv_parser.py
+app/utils/__init__.py
 cv_analyzer_api.egg-info/PKG-INFO
 cv_analyzer_api.egg-info/SOURCES.txt
 cv_analyzer_api.egg-info/dependency_links.txt

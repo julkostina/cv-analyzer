@@ -3,11 +3,10 @@ Name: cv-analyzer-api
 Version: 0.1.0
 Summary: Backend API for CV Analyzer using FastAPI and LangChain
 Requires-Python: >=3.11
-Requires-Dist: fastapi
-Requires-Dist: uvicorn[standard]
-Requires-Dist: langchain
-Requires-Dist: langchain-openai
-Requires-Dist: pydantic
-Requires-Dist: python-dotenv
-Requires-Dist: pdfplumber
-Requires-Dist: python-docx
+Provides-Extra: dev
+Requires-Dist: pytest; extra == "dev"
+Requires-Dist: pytest-asyncio; extra == "dev"
+Requires-Dist: httpx; extra == "dev"
+Requires-Dist: black; extra == "dev"
+Requires-Dist: ruff; extra == "dev"
+Requires-Dist: mypy; extra == "dev"
