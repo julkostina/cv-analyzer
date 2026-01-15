@@ -1,8 +1,8 @@
-fastapi
-uvicorn[standard]
-langchain
-langchain-openai
-pydantic
-python-dotenv
-pdfplumber
-python-docx
+
+[dev]
+pytest
+pytest-asyncio
+httpx
+black
+ruff
+mypy

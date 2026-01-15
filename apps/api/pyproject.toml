@@ -1,7 +1,7 @@
 dependencies = [
   "fastapi",
   "uvicorn[standard]",
-  
+
   # LLM / LangChain
   "langchain",
   "langchain-openai",
@@ -11,18 +11,18 @@ dependencies = [
   # LLM Providers (optional)
   "ollama",  # For local development
   "google-generativeai",  # For production (Gemini)      
-  
   # Config & validation
   "pydantic",
   "pydantic-settings",    
   "python-dotenv",
-  
+
   # CV parsing 
   "pdfplumber",
   "python-docx",
   "pypdf",                
   "docx2python",        
-  
+  "aiofiles",
+
   # HTTP & File handling
   "python-multipart",    
   "aiofiles",        
@@ -40,3 +40,8 @@ dev = [
   "ruff",
   "mypy",
 ]
+[project]
+name = "cv-analyzer-api"
+version = "0.1.0"
+description = "Backend API for CV Analyzer using FastAPI and LangChain"
+requires-python = ">=3.11"

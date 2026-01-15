@@ -22,8 +22,8 @@ async def analyze_cv(
             content = await file.read()
             await f.write(content)
         parser = CVParser()
-        file_type = file.content_type.split("/")[1].lower()
-        cv_text = await parser.parse_file(str(file_path, file_type))
+        file_type = file.content_type.split("/")[1].lower() if file.content_type else file.filename.split(".")[-1].lower()
+        cv_text = await parser.parse_file(str(file_path), file_type)
 
         if not cv_text:
             raise HTTPException(status_code=400, detail="Failed to parse CV")

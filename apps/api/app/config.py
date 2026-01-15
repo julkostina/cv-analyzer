@@ -8,7 +8,7 @@ class Settings(BaseSettings):
     api_reload: bool = False
 
     openai_api_key: str = ""
-
+    gemini_api_key: str = ""
     environment: str = "development"
 
 settings = Settings()
