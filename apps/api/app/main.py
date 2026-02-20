@@ -4,7 +4,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.routers.cv_router import router 
 
-app = FastAPI()
+app = FastAPI( title="CV Analyzer API", description="API for analyzing CVs")
 
 if settings.environment == "development":
     app.add_middleware(
@@ -15,7 +15,7 @@ if settings.environment == "development":
         allow_headers=["*"],
     )
 
-app.include_router(router, prefix="/api/v1", tags="cv")
+app.include_router(router, prefix="/api/v1", tags=["cv"])
 
 @app.get("/")
 def read_root():
