@@ -47,3 +47,7 @@ name = "cv-analyzer-api"
 version = "0.1.0"
 description = "Backend API for CV Analyzer using FastAPI and LangChain"
 requires-python = ">=3.11"
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
