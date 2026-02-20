@@ -1,14 +1,18 @@
-from fastapi import APIRouter, UploadFile, File, HTTPException
-from app.models import CVAnalysisResponse
-from app.services.cv_parser import CVParser
-from app.models import CVAnalysisRequest
-from app.services.cv_analyzer import CVAnalyzer
-from app.utils.file_validator import validate_file
-from app.config import settings
-import aiofiles
+import logging
 import os
+import traceback
 from pathlib import Path
 
+import aiofiles
+from fastapi import APIRouter, UploadFile, File, HTTPException
+
+from app.config import settings
+from app.models import CVAnalysisRequest, CVAnalysisResponse
+from app.services.cv_analyzer import CVAnalyzer
+from app.services.cv_parser import CVParser
+from app.utils.file_validator import validate_file
+
+logger = logging.getLogger(__name__)
 router = APIRouter()
 UPLOAD_DIR = Path("uploads")
 UPLOAD_DIR.mkdir(exist_ok=True)
@@ -49,15 +53,15 @@ async def analyze_cv(
         return result
 
     except ValueError as e:
+        logger.warning("CV analyze validation error: %s", e)
         raise HTTPException(status_code=400, detail=str(e))
     except HTTPException:
         raise
     except Exception as e:
-        import traceback
-
+        logger.exception("CV analyze failed: %s", e)
         raise HTTPException(
             status_code=500,
-            detail=str(e) if settings.environment != "development" else traceback.format_exc(),
+            detail=traceback.format_exc() if settings.environment == "development" else str(e),
         )
     finally:
         if file_path is not None and file_path.exists():

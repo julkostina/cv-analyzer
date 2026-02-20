@@ -1,10 +1,18 @@
-from typing import Union
+import logging
+
 from app.config import settings
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from app.routers.cv_router import router 
+from app.routers.cv_router import router
 
-app = FastAPI( title="CV Analyzer API", description="API for analyzing CVs")
+logging.basicConfig(
+    level=logging.DEBUG if settings.environment == "development" else logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+    datefmt="%Y-%m-%d %H:%M:%S",
+)
+logger = logging.getLogger(__name__)
+
+app = FastAPI(title="CV Analyzer API", description="API for analyzing CVs")
 
 if settings.environment == "development":
     app.add_middleware(
