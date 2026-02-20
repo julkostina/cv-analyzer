@@ -3,6 +3,8 @@ from app.models import CVAnalysisResponse
 from app.services.cv_parser import CVParser
 from app.models import CVAnalysisRequest
 from app.services.cv_analyzer import CVAnalyzer
+from app.utils.file_validator import validate_file
+from app.config import settings
 import aiofiles
 import os
 from pathlib import Path
@@ -11,56 +13,55 @@ router = APIRouter()
 UPLOAD_DIR = Path("uploads")
 UPLOAD_DIR.mkdir(exist_ok=True)
 
-def get_file_type(file: UploadFile) -> str:
-    """Extract file type from filename or content_type"""
-    if file.filename:
-        ext = file.filename.split(".")[-1].lower()
-        if ext in ["pdf", "docx", "doc"]:
-            return ext
-    
-    if file.content_type:
-        mime_to_ext = {
-            "application/pdf": "pdf",
-            "application/msword": "doc",
-            "application/vnd.openxmlformats-officedocument.wordprocessingml.document": "docx",
-        }
-        return mime_to_ext.get(file.content_type, "unknown")
-    
-    return "unknown"
-    
+
 @router.post("/analyze", response_model=CVAnalysisResponse)
 async def analyze_cv(
     file: UploadFile = File(...),
-    job_description: str = None
+    job_description: str = None,
 ):
+    file_path = None
     try:
-        file_path = UPLOAD_DIR / file.filename
+        content = await file.read()
+        file_type, safe_filename = validate_file(
+            content,
+            file.filename,
+            file.content_type,
+            settings.max_upload_size_bytes,
+        )
+        file_path = UPLOAD_DIR / safe_filename
         async with aiofiles.open(file_path, "wb") as f:
-            content = await file.read()
             await f.write(content)
+
         parser = CVParser()
-        file_type = get_file_type(file)
-        if not parser.validate_file_type(file_type):
-            raise HTTPException(status_code=400, detail="Unsupported file type")
         cv_text = await parser.parse_file(str(file_path), file_type)
 
         if not cv_text:
             raise HTTPException(status_code=400, detail="Failed to parse CV")
-        
+
         analyzer = CVAnalyzer()
-        request = CVAnalysisRequest(job_description=job_description) if job_description else None
+        request = (
+            CVAnalysisRequest(job_description=job_description)
+            if job_description
+            else None
+        )
         result = await analyzer.analyze_cv(cv_text, request)
-        
-        os.remove(file_path)
+
         return result
 
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
     except HTTPException:
-        if 'file_path' in locals() and file_path.exists():
-            os.remove(file_path)
         raise
     except Exception as e:
         import traceback
-        error_detail = f"{str(e)}\n{traceback.format_exc()}"
-        if 'file_path' in locals() and file_path.exists():
-            os.remove(file_path)
-        raise HTTPException(status_code=500, detail=error_detail)
+
+        raise HTTPException(
+            status_code=500,
+            detail=str(e) if settings.environment != "development" else traceback.format_exc(),
+        )
+    finally:
+        if file_path is not None and file_path.exists():
+            try:
+                os.remove(file_path)
+            except OSError:
+                pass
