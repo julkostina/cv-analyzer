@@ -11,4 +11,10 @@ class Settings(BaseSettings):
     gemini_api_key: str = ""
     environment: str = "development"
 
+    max_upload_size_mb: int = 10
+
+    @property
+    def max_upload_size_bytes(self) -> int:
+        return self.max_upload_size_mb * 1024 * 1024
+
 settings = Settings()
