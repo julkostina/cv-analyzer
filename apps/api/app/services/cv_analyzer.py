@@ -1,38 +1,71 @@
 from typing import Optional, Dict, Any, List
 from pydantic import BaseModel, Field
 from app.config import settings
-from app.models import CVAnalysisRequest, CVAnalysisResponse
+from app.models import (
+    CVAnalysisRequest,
+    CVAnalysisResponse,
+    ExperienceItem,
+    CertificateItem,
+    EducationItem,
+    ProjectItem,
+)
 
 
-# Pydantic model for structured LLM output
+# System prompt: CV analyzer role and classification rules (content-based, not position)
+_CV_ANALYZER_SYSTEM = """You are an AI CV analyzer. Your task is to extract structured information from the CV.
+
+IMPORTANT: PDF text may have broken order, so do NOT rely on text position. Use only the content to classify.
+
+Classification rules:
+
+1. EXPERIENCE (work experience / ДОСВІД)
+Include only: real jobs, internships, commercial or freelance positions, entries with job duties or work results.
+If there are: task descriptions, technologies used, contribution to a project → this is EXPERIENCE.
+
+2. CERTIFICATES
+Include: online courses, training programs, Meta/Coursera/Epam/AWS training, any learning without job duties.
+Even if dates are present — this is NOT work experience.
+
+3. EDUCATION
+Include: universities, degrees, bachelor/master.
+
+4. PROJECTS
+Pet projects or GitHub projects without official employment.
+
+Additional rules:
+- If organization = Meta / Course / Program → CERTIFICATE.
+- If words "курс", "program", "training" appear → CERTIFICATE.
+- If there is a description of work tasks → EXPERIENCE.
+- If entry has a GitHub link and no company is specified → PROJECT.
+
+Return the result strictly in the required JSON schema (experience, certificates, education, projects). Use English for field values. Also provide: skills (list), analysis (summary, strengths, weaknesses), match_score (0-1 if job description given), recommendations."""
+
+# Pydantic model for structured LLM output (uses same item types as API response)
 class CVAnalysisOutput(BaseModel):
-    """Structured output schema for CV analysis"""
+    """Structured output: experience, certificates, education, projects + skills, analysis, match_score, recommendations."""
+    skills: Optional[List[str]] = Field(None, description="List of skills/technologies")
+    experience: Optional[List[ExperienceItem]] = Field(
+        None,
+        description="Only real work: jobs, internships, freelance. Exclude courses and pet projects.",
+    )
+    certificates: Optional[List[CertificateItem]] = Field(
+        None,
+        description="Online courses, Meta/Epam/Coursera/AWS training, any learning without job duties.",
+    )
+    education: Optional[List[EducationItem]] = Field(
+        None,
+        description="Universities, degrees, bachelor/master.",
+    )
+    projects: Optional[List[ProjectItem]] = Field(
+        None,
+        description="Pet projects, GitHub projects without official employment.",
+    )
     analysis: Optional[Dict[str, Any]] = Field(
-        None, 
-        description="Analysis summary with strengths, weaknesses, and overall assessment"
+        None,
+        description="Short summary, strengths, weaknesses",
     )
-    skills: Optional[List[str]] = Field(
-        None, 
-        description="List of skills extracted from the CV"
-    )
-    experience: Optional[List[Dict[str, Any]]] = Field(
-        None, 
-        description="List of work experience entries with title, company, duration"
-    )
-    education: Optional[List[Dict[str, Any]]] = Field(
-        None, 
-        description="List of education entries with degree, institution, year"
-    )
-    match_score: Optional[float] = Field(
-        None, 
-        ge=0, 
-        le=1, 
-        description="Match score between CV and job description (0-1)"
-    )
-    recommendations: Optional[List[str]] = Field(
-        None, 
-        description="List of recommendations for improving the CV"
-    )
+    match_score: Optional[float] = Field(None, ge=0, le=1, description="0-1 if job description provided")
+    recommendations: Optional[List[str]] = Field(None, description="Improvement tips")
 
 
 class CVAnalyzer:
@@ -69,47 +102,34 @@ class CVAnalyzer:
                 temperature=0.3,
             )
         
-        prompt_template = ChatPromptTemplate.from_messages([
-            ("system", """You are an expert CV analyzer. Analyze the provided CV and extract structured information.
-Respond in English only, regardless of the CV language.
-Return your response as valid JSON matching the required schema."""),
-            ("human", """Analyze this CV and extract the following information:
-- Skills and competencies
-- Work experience (title, company, duration)
-- Education (degree, institution, year)
-- Overall analysis (summary, strengths, weaknesses)
-- Match score (0-1) if job description is provided
-- Recommendations for improvement
-
-CV Content:
-{cv_text}
-{job_description_section}""")
-        ])
-        
         job_description_section = ""
         if job_description:
-            job_description_section = f"\n\nJob Description:\n{job_description}\n\nPlease provide a match score (0-1) based on how well the CV matches this job description."
+            job_description_section = f"\n\nJob description:\n{job_description}\n\nProvide match_score (0-1)."
+
+        prompt_template = ChatPromptTemplate.from_messages([
+            ("system", _CV_ANALYZER_SYSTEM),
+            ("human", "Extract experience, certificates, education, projects, skills, analysis, match_score, recommendations.\n\nCV:\n{cv_text}\n{job_description_section}"),
+        ])
         
         try:
-            # Use with_structured_output for better compatibility with Ollama
             structured_llm = self._ollama_llm.with_structured_output(CVAnalysisOutput)
             chain = prompt_template | structured_llm
-            
             result: CVAnalysisOutput = await chain.ainvoke({
                 "cv_text": cv_text,
                 "job_description_section": job_description_section,
             })
-            
             return CVAnalysisResponse(
                 success=True,
                 extracted_text=cv_text,
                 analysis=result.analysis,
                 skills=result.skills,
                 experience=result.experience,
+                certificates=result.certificates,
                 education=result.education,
+                projects=result.projects,
                 match_score=result.match_score,
                 recommendations=result.recommendations,
-                error=None
+                error=None,
             )
         except Exception as e:
             import traceback
@@ -138,47 +158,34 @@ CV Content:
                 temperature=0.3,
             )
         
-        prompt_template = ChatPromptTemplate.from_messages([
-            ("system", """You are an expert CV analyzer. Analyze the provided CV and extract structured information.
-Respond in English only, regardless of the CV language.
-Return your response as valid JSON matching the required schema."""),
-            ("human", """Analyze this CV and extract the following information:
-- Skills and competencies
-- Work experience (title, company, duration)
-- Education (degree, institution, year)
-- Overall analysis (summary, strengths, weaknesses)
-- Match score (0-1) if job description is provided
-- Recommendations for improvement
-
-CV Content:
-{cv_text}
-{job_description_section}""")
-        ])
-        
         job_description_section = ""
         if job_description:
-            job_description_section = f"\n\nJob Description:\n{job_description}\n\nPlease provide a match score (0-1) based on how well the CV matches this job description."
+            job_description_section = f"\n\nJob description:\n{job_description}\n\nProvide match_score (0-1)."
+
+        prompt_template = ChatPromptTemplate.from_messages([
+            ("system", _CV_ANALYZER_SYSTEM),
+            ("human", "Extract experience, certificates, education, projects, skills, analysis, match_score, recommendations.\n\nCV:\n{cv_text}\n{job_description_section}"),
+        ])
         
         try:
-            # Use with_structured_output for better compatibility
             structured_llm = self._gemini_llm.with_structured_output(CVAnalysisOutput)
             chain = prompt_template | structured_llm
-            
             result: CVAnalysisOutput = await chain.ainvoke({
                 "cv_text": cv_text,
                 "job_description_section": job_description_section,
             })
-            
             return CVAnalysisResponse(
                 success=True,
                 extracted_text=cv_text,
                 analysis=result.analysis,
                 skills=result.skills,
                 experience=result.experience,
+                certificates=result.certificates,
                 education=result.education,
+                projects=result.projects,
                 match_score=result.match_score,
                 recommendations=result.recommendations,
-                error=None
+                error=None,
             )
         except Exception as e:
             import traceback

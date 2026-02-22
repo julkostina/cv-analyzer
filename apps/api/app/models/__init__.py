@@ -1,3 +1,19 @@
-from .cv_models import CVUpload, CVAnalysisRequest, CVAnalysisResponse
+from .cv_models import (
+    CVUpload,
+    CVAnalysisRequest,
+    CVAnalysisResponse,
+    ExperienceItem,
+    CertificateItem,
+    EducationItem,
+    ProjectItem,
+)
 
-__all__ = ["CVUpload", "CVAnalysisRequest", "CVAnalysisResponse"]
+__all__ = [
+    "CVUpload",
+    "CVAnalysisRequest",
+    "CVAnalysisResponse",
+    "ExperienceItem",
+    "CertificateItem",
+    "EducationItem",
+    "ProjectItem",
+]
