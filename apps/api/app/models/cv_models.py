@@ -53,6 +53,18 @@ class CVAnalysisResponse(BaseModel):
     certificates: Optional[List[CertificateItem]] = None
     education: Optional[List[EducationItem]] = None
     projects: Optional[List[ProjectItem]] = None
-    match_score: Optional[float] = Field(None, ge=0, le=1)
-    recommendations: Optional[List[str]] = None
+    match_score: Optional[float] = Field(
+        None,
+        ge=0,
+        le=1,
+        description="How well the CV matches the position requirements (0-1). Only present when job description/position URL was provided.",
+    )
+    match_score_reasoning: Optional[str] = Field(
+        None,
+        description="LLM's scoring breakdown: formula used, point-by-point (+/- with reason), and total. E.g. 'Formula: base 0.5. +0.1 React; -0.15 no 5y exp. Total: 0.45'. Only when job description was provided; not general advice.",
+    )
+    recommendations: Optional[List[str]] = Field(
+        None,
+        description="Never empty on success: general market advice when no position given; position-specific when job description provided.",
+    )
     error: Optional[str] = None
