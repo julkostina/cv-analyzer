@@ -11,6 +11,12 @@ class Settings(BaseSettings):
     gemini_api_key: str = ""
     environment: str = "development"
 
+    # Ollama model for development (e.g. llama3.2:3b, llama3.2:8b). Larger models give better extraction on long CVs.
+    ollama_model: str = "llama3.2:3b"
+
+    # Max CV characters sent to the LLM (rest is truncated so the prompt fits in context). 0 = no limit.
+    max_cv_chars_for_llm: int = 12_000
+
     max_upload_size_mb: int = 10
 
     @property
