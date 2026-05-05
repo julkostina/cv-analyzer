@@ -44,6 +44,12 @@ class ProjectItem(BaseModel):
     link: Optional[str] = Field(None, description="URL (e.g. GitHub)")
 
 
+class JobRequirementsExtraction(BaseModel):
+    """Extracted skills and requirements summary from a job description."""
+    skills: List[str] = Field(default_factory=list, description="Required skills/technologies from the job description")
+    requirements_summary: str = Field(default="", description="Short summary of key requirements (experience, education, etc.)")
+
+
 class CVAnalysisResponse(BaseModel):
     success: bool
     extracted_text: Optional[str] = None
@@ -61,10 +67,23 @@ class CVAnalysisResponse(BaseModel):
     )
     match_score_reasoning: Optional[str] = Field(
         None,
-        description="LLM's scoring breakdown: formula used, point-by-point (+/- with reason), and total. E.g. 'Formula: base 0.5. +0.1 React; -0.15 no 5y exp. Total: 0.45'. Only when job description was provided; not general advice.",
+        description="Текстове обґрунтування оцінки (українською), зокрема семантичний розклад, якщо застосовано Sentence Transformers.",
     )
     recommendations: Optional[List[str]] = Field(
         None,
         description="Never empty on success: general market advice when no position given; position-specific when job description provided.",
+    )
+    matched_competencies: Optional[List[str]] = Field(
+        None,
+        description="Навички/вимоги з вакансії, які підтверджуються резюме (українською). Якщо вакансії немає — порожній список.",
+    )
+    missing_competencies: Optional[List[str]] = Field(
+        None,
+        description="Вимоги вакансії, яких бракує або слабо видно в резюме (українською). Якщо вакансії немає — порожній список.",
+    )
+    # Semantic matching breakdown (when use_semantic_matching is True and job description provided)
+    semantic_breakdown: Optional[Dict[str, float]] = Field(
+        None,
+        description="Per-component similarities: skills_similarity, experience_similarity, overall_similarity. Present when semantic matching is used.",
     )
     error: Optional[str] = None

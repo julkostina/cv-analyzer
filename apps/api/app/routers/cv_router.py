@@ -7,20 +7,22 @@ from typing import Annotated, Optional
 
 import aiofiles
 import httpx
-from fastapi import APIRouter, UploadFile, File, Form, HTTPException
+from fastapi import APIRouter, File, Form, HTTPException, UploadFile
+from fastapi.responses import Response
 
 from app.config import settings
 from app.models import CVAnalysisRequest, CVAnalysisResponse
+from app.services.analysis_pdf import render_analysis_pdf
 from app.services.cv_analyzer import CVAnalyzer
 from app.services.cv_parser import CVParser
 from app.utils.file_validator import validate_file
+from app.utils.text_preprocess import normalize_text_for_pipeline
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
 UPLOAD_DIR = Path("uploads")
 UPLOAD_DIR.mkdir(exist_ok=True)
 
-# Max chars to use from a fetched job page (avoid huge payloads)
 JOB_URL_CONTENT_LIMIT = 50_000
 
 
@@ -35,10 +37,10 @@ async def _fetch_job_description_from_url(url: str) -> str:
     # Strip HTML tags for a rough plain-text version
     text = re.sub(r"<[^>]+>", " ", text)
     text = re.sub(r"\s+", " ", text).strip()
-    return text
+    return normalize_text_for_pipeline(text)
 
 
-@router.post("/analyze", response_model=CVAnalysisResponse)
+@router.post("/analyze", response_model=None)
 async def analyze_cv(
     file: UploadFile = File(..., description="CV file (PDF or DOCX)"),
     job_description: Annotated[
@@ -48,10 +50,13 @@ async def analyze_cv(
         Optional[str],
         Form(description="URL of job posting to fetch requirements from (optional). Used with or instead of job_description."),
     ] = None,
+    return_pdf: Annotated[
+        bool,
+        Form(description="If true and analysis succeeds, response is application/pdf."),
+    ] = False,
 ):
     file_path = None
     try:
-        # Resolve job description: optional text + optional URL (fetch and merge)
         job_text = (job_description or "").strip()
         if job_description_url and job_description_url.strip():
             try:
@@ -63,6 +68,8 @@ async def analyze_cv(
                     status_code=400,
                     detail=f"Could not fetch job description from URL: {e!s}",
                 ) from e
+
+        job_text = normalize_text_for_pipeline(job_text) if job_text else ""
 
         content = await file.read()
         file_type, safe_filename = validate_file(
@@ -77,6 +84,7 @@ async def analyze_cv(
 
         parser = CVParser()
         cv_text = await parser.parse_file(str(file_path), file_type)
+        cv_text = normalize_text_for_pipeline(cv_text or "")
 
         if not cv_text:
             raise HTTPException(status_code=400, detail="Failed to parse CV")
@@ -88,6 +96,21 @@ async def analyze_cv(
             else None
         )
         result = await analyzer.analyze_cv(cv_text, request)
+
+        if return_pdf:
+            if not result.success:
+                raise HTTPException(
+                    status_code=400,
+                    detail=result.error or "Аналіз не вдався; PDF не сформовано.",
+                )
+            pdf_bytes = render_analysis_pdf(result)
+            return Response(
+                content=pdf_bytes,
+                media_type="application/pdf",
+                headers={
+                    "Content-Disposition": 'attachment; filename="cv-analysis-report.pdf"',
+                },
+            )
 
         return result
 

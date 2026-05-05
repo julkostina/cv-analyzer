@@ -6,6 +6,7 @@ from .cv_models import (
     CertificateItem,
     EducationItem,
     ProjectItem,
+    JobRequirementsExtraction,
 )
 
 __all__ = [
@@ -16,4 +17,5 @@ __all__ = [
     "CertificateItem",
     "EducationItem",
     "ProjectItem",
+    "JobRequirementsExtraction",
 ]
