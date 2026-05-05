@@ -55,3 +55,43 @@ async def test_analyze_success_with_mocked_parser_and_analyzer(client):
     assert data["success"] is True
     assert data["skills"] == ["Python"]
     assert data.get("match_score") == 0.85
+
+
+@pytest.mark.asyncio
+async def test_analyze_return_pdf_when_requested(client):
+    """return_pdf=true returns application/pdf when analysis succeeds."""
+    mock_response = CVAnalysisResponse(
+        success=True,
+        extracted_text="Sample CV text",
+        analysis={"summary": "Підсумок"},
+        skills=["Python"],
+        experience=[],
+        education=[],
+        match_score=0.9,
+        match_score_reasoning="Тестове обґрунтування",
+        recommendations=["Рекомендація"],
+        error=None,
+    )
+    fake_pdf = b"%PDF-1.4\n%\xe2\xe3\xcf\xd3\n"
+
+    with (
+        patch("app.routers.cv_router.CVParser") as MockParser,
+        patch("app.routers.cv_router.CVAnalyzer") as MockAnalyzer,
+        patch("app.routers.cv_router.render_analysis_pdf", return_value=fake_pdf) as mock_pdf,
+    ):
+        mock_parser_instance = MockParser.return_value
+        mock_parser_instance.parse_file = AsyncMock(return_value="Sample CV text")
+
+        mock_analyzer_instance = MockAnalyzer.return_value
+        mock_analyzer_instance.analyze_cv = AsyncMock(return_value=mock_response)
+
+        response = await client.post(
+            "/api/v1/analyze",
+            files={"file": ("cv.pdf", MINIMAL_PDF, "application/pdf")},
+            data={"return_pdf": "true"},
+        )
+
+    assert response.status_code == 200
+    assert response.headers.get("content-type", "").startswith("application/pdf")
+    mock_pdf.assert_called_once()
+    assert response.content.startswith(b"%PDF")
