@@ -1,0 +1,23 @@
+# API runtime – install in venv: pip install -r requirements.txt
+fastapi
+uvicorn[standard]
+langchain
+langchain-openai
+langchain-community
+langchain-core
+langchain-ollama
+langchain-google-genai
+ollama
+google-generativeai
+pydantic
+pydantic-settings
+python-dotenv
+pdfplumber
+python-docx
+pypdf
+docx2python
+aiofiles
+python-multipart
+httpx
+numpy
+sentence-transformers>=2.2.0
