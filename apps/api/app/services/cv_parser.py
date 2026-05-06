@@ -4,7 +4,7 @@ from typing import Optional
 
 
 class CVParser:
-    """CV parser service (PDF та DOCX)"""
+    """Parse CV files (PDF and DOCX)."""
     
     @staticmethod
     async def parse_pdf(file_path: str) -> Optional[str]:

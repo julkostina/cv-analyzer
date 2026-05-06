@@ -1,4 +1,4 @@
-"""PDF-звіт з результату аналізу резюме."""
+"""Build a PDF report from a CV analysis API response."""
 from __future__ import annotations
 
 import logging
@@ -30,7 +30,7 @@ def _resolve_dejavu_font_path() -> Path:
         p = Path(explicit).expanduser()
         if p.is_file():
             return p
-        raise RuntimeError(f"PDF_FONT_PATH не знайдено або не файл: {p}")
+        raise RuntimeError(f"PDF_FONT_PATH is not a valid file: {p}")
 
     cached = _font_cache_dir() / "DejaVuSans.ttf"
     if cached.is_file() and cached.stat().st_size > 10_000:
@@ -41,8 +41,7 @@ def _resolve_dejavu_font_path() -> Path:
         urllib.request.urlretrieve(_DEJAVU_CDN_TTF, cached)  # noqa: S310
     except Exception as e:
         raise RuntimeError(
-            "Не вдалося завантажити шрифт DejaVu для PDF. "
-            "Перевірте мережу або встановіть PDF_FONT_PATH на локальний .ttf."
+            "Could not download DejaVu font for PDF. Check network or set PDF_FONT_PATH to a local .ttf file."
         ) from e
     return cached
 
@@ -51,7 +50,7 @@ def render_analysis_pdf(resp: CVAnalysisResponse) -> bytes:
     try:
         from fpdf import FPDF
     except ImportError as e:
-        raise RuntimeError("Для PDF потрібен пакет fpdf2: pip install fpdf2") from e
+        raise RuntimeError("PDF export requires the fpdf2 package: pip install fpdf2") from e
 
     font_path = _resolve_dejavu_font_path()
 
@@ -68,65 +67,65 @@ def render_analysis_pdf(resp: CVAnalysisResponse) -> bytes:
         pdf.ln(2)
 
     pdf.set_font("DejaVu", "", 14)
-    _line("Звіт аналізу резюме")
+    _line("Resume analysis report")
     pdf.set_font("DejaVu", "", 11)
 
     if not resp.success:
-        _line("Помилка обробки")
-        _line(resp.error or "Невідома помилка")
+        _line("Processing error")
+        _line(resp.error or "Unknown error")
         return _pdf_bytes(pdf)
 
     if resp.match_score is not None:
         pct = round(float(resp.match_score) * 100, 1)
-        _line(f"Оцінка відповідності вакансії: {pct}%")
+        _line(f"Job match score: {pct}%")
 
     if resp.semantic_breakdown:
         sb = resp.semantic_breakdown
-        _line("Семантичний розклад (подібність 0–1):")
+        _line("Semantic breakdown (similarity 0–1):")
         _line(
-            f"  Навички: {sb.get('skills_similarity', 0):.3f}\n"
-            f"  Досвід: {sb.get('experience_similarity', 0):.3f}\n"
-            f"  Загальна: {sb.get('overall_similarity', 0):.3f}"
+            f"  Skills: {sb.get('skills_similarity', 0):.3f}\n"
+            f"  Experience: {sb.get('experience_similarity', 0):.3f}\n"
+            f"  Overall: {sb.get('overall_similarity', 0):.3f}"
         )
 
     if resp.match_score_reasoning:
-        _line("Обґрунтування оцінки:")
+        _line("Score rationale:")
         _line(resp.match_score_reasoning)
 
     if resp.matched_competencies:
-        _line("Відповідні компетенції:")
+        _line("Matched competencies:")
         _line("\n".join(f"• {x}" for x in resp.matched_competencies))
 
     if resp.missing_competencies:
-        _line("Відсутні або слабкі компетенції:")
+        _line("Missing or weak competencies:")
         _line("\n".join(f"• {x}" for x in resp.missing_competencies))
 
     if resp.analysis:
         summ = resp.analysis.get("summary")
         if summ:
-            _line("Підсумок:")
+            _line("Summary:")
             _line(str(summ))
         strengths = resp.analysis.get("strengths")
         if strengths:
-            _line("Сильні сторони:")
+            _line("Strengths:")
             if isinstance(strengths, list):
                 _line("\n".join(f"• {s}" for s in strengths))
             else:
                 _line(str(strengths))
         weaknesses = resp.analysis.get("weaknesses")
         if weaknesses:
-            _line("Слабкі сторони:")
+            _line("Weaknesses:")
             if isinstance(weaknesses, list):
                 _line("\n".join(f"• {w}" for w in weaknesses))
             else:
                 _line(str(weaknesses))
 
     if resp.recommendations:
-        _line("Рекомендації:")
+        _line("Recommendations:")
         _line("\n".join(f"• {r}" for r in resp.recommendations))
 
     if resp.skills:
-        _line("Витягнуті навички:")
+        _line("Extracted skills:")
         _line(", ".join(resp.skills))
 
     return _pdf_bytes(pdf)

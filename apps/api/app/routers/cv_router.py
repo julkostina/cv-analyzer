@@ -101,7 +101,7 @@ async def analyze_cv(
             if not result.success:
                 raise HTTPException(
                     status_code=400,
-                    detail=result.error or "Аналіз не вдався; PDF не сформовано.",
+                    detail=result.error or "Analysis failed; PDF was not generated.",
                 )
             pdf_bytes = render_analysis_pdf(result)
             return Response(

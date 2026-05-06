@@ -14,8 +14,10 @@ class Settings(BaseSettings):
     gemini_api_key: str = ""
     environment: str = "development"
 
-    # Ollama model for development. Use llama3:8b for 8B (run: ollama pull llama3:8b). Llama 3.2 has only 1b/3b: ollama pull llama3.2:3b.
+    # Ollama model for development (ollama pull …). 8B+ models follow JSON schema more reliably than 3B.
     ollama_model: str = "llama3:8b"
+    # Context window (tokens). Long Ukrainian prompt + CV + job needs headroom for structured output.
+    ollama_num_ctx: int = 24576
 
     # Max CV characters sent to the LLM (rest is truncated). 0 = no truncation (full CV sent; needs larger context).
     max_cv_chars_for_llm: int = 0

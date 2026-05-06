@@ -63,13 +63,13 @@ async def test_analyze_return_pdf_when_requested(client):
     mock_response = CVAnalysisResponse(
         success=True,
         extracted_text="Sample CV text",
-        analysis={"summary": "Підсумок"},
+        analysis={"summary": "Summary"},
         skills=["Python"],
         experience=[],
         education=[],
         match_score=0.9,
-        match_score_reasoning="Тестове обґрунтування",
-        recommendations=["Рекомендація"],
+        match_score_reasoning="Test rationale",
+        recommendations=["Recommendation"],
         error=None,
     )
     fake_pdf = b"%PDF-1.4\n%\xe2\xe3\xcf\xd3\n"

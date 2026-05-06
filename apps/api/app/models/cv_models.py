@@ -67,7 +67,7 @@ class CVAnalysisResponse(BaseModel):
     )
     match_score_reasoning: Optional[str] = Field(
         None,
-        description="Текстове обґрунтування оцінки (українською), зокрема семантичний розклад, якщо застосовано Sentence Transformers.",
+        description="Human-readable score rationale, including semantic breakdown when Sentence Transformers are used.",
     )
     recommendations: Optional[List[str]] = Field(
         None,
@@ -75,11 +75,11 @@ class CVAnalysisResponse(BaseModel):
     )
     matched_competencies: Optional[List[str]] = Field(
         None,
-        description="Навички/вимоги з вакансії, які підтверджуються резюме (українською). Якщо вакансії немає — порожній список.",
+        description="Job requirements clearly supported by the CV. Empty when no job was provided.",
     )
     missing_competencies: Optional[List[str]] = Field(
         None,
-        description="Вимоги вакансії, яких бракує або слабо видно в резюме (українською). Якщо вакансії немає — порожній список.",
+        description="Job requirements weak or missing in the CV. Empty when no job was provided.",
     )
     # Semantic matching breakdown (when use_semantic_matching is True and job description provided)
     semantic_breakdown: Optional[Dict[str, float]] = Field(

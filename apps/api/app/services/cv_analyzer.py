@@ -1,7 +1,10 @@
+import json
 import logging
+import re
 import traceback
 from typing import Any, Dict, List, Optional
 
+from langchain_core.messages import HumanMessage, SystemMessage
 from langchain_core.prompts import ChatPromptTemplate
 from pydantic import BaseModel, Field
 
@@ -20,43 +23,61 @@ from app.utils.text_preprocess import normalize_text_for_pipeline
 logger = logging.getLogger(__name__)
 
 _HUMAN_PROMPT = (
-    "Поверни ПОВНИЙ JSON: skills, experience, certificates, education, projects, "
+    "Return the FULL JSON: skills, experience, certificates, education, projects, "
     "analysis, matched_competencies, missing_competencies, match_score (null), "
-    "match_score_reasoning (null), recommendations. Порожні списки як [].\n\nРезюме:\n{cv_text}\n{job_description_section}"
+    "match_score_reasoning (null), recommendations. Use [] for empty lists.\n\nCV:\n{cv_text}\n{job_description_section}"
 )
 
-_CV_ANALYZER_SYSTEM = """Ти — асистент для аналізу резюме (AI CV analyzer).
+_CV_ANALYZER_SYSTEM = """You are an AI CV analyzer.
 
-Завдання: з тексту резюме витягни структуровані дані та поверни ПОВНИЙ JSON з усіма полями щоразу.
+Task: extract structured data from the CV text and return a COMPLETE JSON object every time.
 
-КРИТИЧНО: усі текстові значення для користувача (підсумки, рекомендації, рядки в skills, matched_competencies, missing_competencies, поля employer/title/name тощо) — українською мовою. Оригінальні назви технологій (React, TypeScript) можна лишати латиницею.
+CRITICAL: all user-facing text (summaries, recommendations, skills lines, matched_competencies, missing_competencies, employer/title/name fields, etc.) must be in English. Technology names (React, TypeScript) stay as usual.
 
-Обовʼязкові масиви: skills, experience, certificates, education, projects — якщо немає даних, поверни []. Не використовуй null для цих масивів.
+Required arrays: skills, experience, certificates, education, projects — use [] when empty. Do not use null for these arrays.
 
-analysis — об'єкт з ключами summary, strengths, weaknesses (українською). strengths і weaknesses — рядки або короткі переліки в тексті.
+analysis — object with keys summary, strengths, weaknesses (English). strengths and weaknesses may be strings or short lists.
 
-recommendations — масив з щонайменше одного рядка українською.
+recommendations — at least one string in English.
 
-Якщо надано опис вакансії:
-- matched_competencies — пункти вимог/навичок з вакансії, які підтверджуються резюме.
-- missing_competencies — вимоги вакансії, яких бракує або мало видно в резюме.
-- match_score та match_score_reasoning завжди null (їх обчислює сервер окремо за семантичною моделлю).
+If a job description is provided:
+- matched_competencies — job requirements/skills clearly supported by the CV.
+- missing_competencies — job requirements weak or missing in the CV.
+- match_score and match_score_reasoning must always be null (the server fills them via semantic scoring).
 
-Якщо опису вакансії немає:
+If no job description:
 - matched_competencies: [], missing_competencies: [].
-- match_score та match_score_reasoning: null.
-- recommendations — загальні поради для ринку праці (українською).
+- match_score and match_score_reasoning: null.
+- recommendations — general market-oriented advice in English.
 
-Класифікація:
-- EXPERIENCE — робота, стажування, фриланс з обовʼязками. Не курси.
-- CERTIFICATES — курси, тренінги (Meta, Coursera, Epam, AWS) без робочих обовʼязків.
-- EDUCATION — виші, ступінь.
-- PROJECTS — пет-проєкти, GitHub без офіційного найму.
+Classification:
+- EXPERIENCE — jobs, internships, freelance with duties. Not courses.
+- CERTIFICATES — courses, training (Meta, Coursera, Epam, AWS) without job duties.
+- EDUCATION — universities, degrees.
+- PROJECTS — pet projects, GitHub without formal employment.
 
-Текст із PDF може мати «зламаний» порядок рядків — класифікуй за змістом.
+PDF text order may be broken — classify by content.
 
-Додатково: Meta / Course / Program без робочих задач → CERTIFICATE. Слова «курс», «training», «program» у контексті навчання → CERTIFICATE. Опис робочих задач → EXPERIENCE. GitHub без компанії найму → PROJECT.
+Rules: Meta / Course / Program without work tasks → CERTIFICATE. Words "course", "training", "program" in a learning context → CERTIFICATE. Work tasks described → EXPERIENCE. GitHub link and no hiring company → PROJECT.
 """
+
+_OLLAMA_FALLBACK_SYSTEM = (
+    "Return exactly ONE valid JSON object and nothing else: no markdown, no code fences, no text before or after. "
+    "Keys (English): skills, experience, certificates, education, projects, analysis, "
+    "matched_competencies, missing_competencies, match_score, match_score_reasoning, recommendations. "
+    "All user-facing string values in English. recommendations must have at least one item."
+)
+
+_OLLAMA_FALLBACK_HUMAN = (
+    "Fill JSON using the same classification rules as the main prompt (experience / certificates / education / projects). "
+    "Empty sections as []. match_score and match_score_reasoning must be null.\n\n"
+    "CV:\n{cv_text}\n{job_description_section}"
+)
+
+_OLLAMA_FALLBACK_RULES = (
+    "Classification: EXPERIENCE — jobs, internship, freelance; CERTIFICATES — courses without job duties; "
+    "EDUCATION — school/university; PROJECTS — side projects. Meta/Course/Program without work tasks → CERTIFICATE."
+)
 
 
 class CVAnalysisOutput(BaseModel):
@@ -71,6 +92,31 @@ class CVAnalysisOutput(BaseModel):
     recommendations: List[str] = Field(..., min_length=1)
     matched_competencies: Optional[List[str]] = Field(None)
     missing_competencies: Optional[List[str]] = Field(None)
+
+
+def _parse_llm_json_blob(text: str) -> Optional[Dict[str, Any]]:
+    t = (text or "").strip()
+    t = re.sub(r"^\s*```(?:json)?\s*", "", t, flags=re.IGNORECASE)
+    t = re.sub(r"\s*```\s*$", "", t)
+    start = t.find("{")
+    if start < 0:
+        return None
+    try:
+        obj, _ = json.JSONDecoder().raw_decode(t[start:])
+    except json.JSONDecodeError:
+        return None
+    return obj if isinstance(obj, dict) else None
+
+
+def _cv_output_from_parsed_dict(raw: Dict[str, Any]) -> Optional[CVAnalysisOutput]:
+    data = dict(raw)
+    recs = data.get("recommendations")
+    if not recs or not isinstance(recs, list) or len(recs) == 0:
+        data["recommendations"] = ["Review your CV and try the analysis again."]
+    try:
+        return CVAnalysisOutput.model_validate(data)
+    except Exception:
+        return None
 
 
 def _normalize_llm_result(result: CVAnalysisOutput) -> tuple[CVAnalysisOutput, bool]:
@@ -113,6 +159,27 @@ def _is_extraction_empty(result: CVAnalysisOutput) -> bool:
     )
 
 
+def _ollama_empty_extraction_hint(model_name: str) -> str:
+    """Hints that do not suggest the same model tag the user already runs."""
+    m = model_name.lower()
+    parts: List[str] = []
+    small = any(tok in m for tok in ("3.2", ":3b", "1b", "1.5b", ":2b", "2.3b")) and "8b" not in m and "70b" not in m
+    if small:
+        parts.append("Small models often fail on complex JSON schemas.")
+        parts.append("Try OLLAMA_MODEL=llama3:8b or llama3.1:8b (ollama pull …).")
+    elif "llama3" in m and "8b" in m:
+        parts.append("Even llama3:8b can return empty structured output (Ollama + LangChain JSON schema).")
+        parts.append(
+            "Try: mistral / qwen2.5 / llama3.1:8b; upgrade Ollama and re-pull the model; or ENVIRONMENT=production with GEMINI_API_KEY."
+        )
+    else:
+        parts.append("Try another model (mistral, qwen2.5, llama3.1:8b) or Gemini in production.")
+    parts.append(
+        f"If needed raise OLLAMA_NUM_CTX (currently {settings.ollama_num_ctx}). Keep MAX_CV_CHARS_FOR_LLM=0 to avoid truncating the CV."
+    )
+    return " ".join(parts)
+
+
 def _empty_extraction_error(
     backend: str,
     model_name: str,
@@ -120,21 +187,17 @@ def _empty_extraction_error(
     cv_chars_total: int,
 ) -> str:
     if cv_chars_sent < cv_chars_total:
-        cv_detail = f"До моделі надіслано {cv_chars_sent} символів резюме (обрізано з {cv_chars_total})."
+        cv_detail = f"CV sent to the model: {cv_chars_sent} characters (truncated from {cv_chars_total})."
     else:
-        cv_detail = f"Довжина резюме: {cv_chars_total} символів."
+        cv_detail = f"CV length: {cv_chars_total} characters."
     base = (
-        "Аналіз не вдався: модель не повернула структуровані дані. "
-        "Усі обовʼязкові блоки (досвід, освіта, сертифікати, проєкти, навички) порожні. "
-        f"Бекенд: {backend}, модель: {model_name}. {cv_detail} "
+        "Analysis failed: the model returned no structured data. "
+        "All required sections (experience, education, certificates, projects, skills) are empty. "
+        f"Backend: {backend}, model: {model_name}. {cv_detail} "
     )
     if backend == "Ollama":
-        return (
-            base
-            + "Спробуйте: змінити OLLAMA_MODEL на потужнішу модель (наприклад llama3.2:3b); "
-            "або MAX_CV_CHARS_FOR_LLM=0; або ENVIRONMENT=production (Gemini)."
-        )
-    return base + "Спробуйте коротше резюме або перевірте налаштування моделі."
+        return base + _ollama_empty_extraction_hint(model_name)
+    return base + "Try a shorter CV or verify model configuration."
 
 
 def _experience_text_from_result(result: CVAnalysisOutput) -> str:
@@ -146,14 +209,14 @@ def _experience_text_from_result(result: CVAnalysisOutput) -> str:
     return "\n".join(parts)
 
 
-def _semantic_reasoning_ua(sem: SemanticMatchResult) -> str:
+def _semantic_reasoning_text(sem: SemanticMatchResult) -> str:
     return (
-        "Оцінка відповідності обчислена автоматично за косинусною подібністю "
-        "векторних представлень резюме та опису вакансії (Sentence Transformers, багатомовна модель).\n\n"
-        f"• Подібність за блоком навичок: {sem.skills_similarity:.1%}\n"
-        f"• Подібність досвіду до вимог: {sem.experience_similarity:.1%}\n"
-        f"• Загальна семантична близькість текстів: {sem.overall_similarity:.1%}\n\n"
-        f"Зважена підсумкова оцінка: {sem.score:.1%}."
+        "Match score from cosine similarity of resume and job embeddings "
+        "(Sentence Transformers multilingual model).\n\n"
+        f"• Skills block similarity: {sem.skills_similarity:.1%}\n"
+        f"• Experience vs requirements similarity: {sem.experience_similarity:.1%}\n"
+        f"• Full-text similarity: {sem.overall_similarity:.1%}\n\n"
+        f"Weighted overall score: {sem.score:.1%}."
     )
 
 
@@ -162,7 +225,7 @@ def _build_success_response(
     result: CVAnalysisOutput,
     job_description: Optional[str],
 ) -> CVAnalysisResponse:
-    recs = result.recommendations or ["Уточніть резюме та повторіть аналіз."]
+    recs = result.recommendations or ["Review your CV and try again."]
     matched = list(result.matched_competencies or [])
     missing = list(result.missing_competencies or [])
 
@@ -187,7 +250,7 @@ def _build_success_response(
                 "experience_similarity": sem.experience_similarity,
                 "overall_similarity": sem.overall_similarity,
             }
-            match_reason = _semantic_reasoning_ua(sem)
+            match_reason = _semantic_reasoning_text(sem)
             logger.info(
                 "Semantic match score=%.3f (skills=%.3f exp=%.3f overall=%.3f)",
                 sem.score,
@@ -222,13 +285,13 @@ def _build_success_response(
 def _job_section(job_description: Optional[str]) -> str:
     if job_description and job_description.strip():
         return (
-            f"\n\nОпис вакансії (вимоги):\n{job_description.strip()}\n\n"
-            "Порівняй резюме з вимогами. Заповни matched_competencies та missing_competencies українською. "
-            "match_score і match_score_reasoning залиш null. Рекомендації — конкретно під цю вакансію, українською."
+            f"\n\nJob description (requirements):\n{job_description.strip()}\n\n"
+            "Compare the CV to the requirements. Fill matched_competencies and missing_competencies in English. "
+            "Leave match_score and match_score_reasoning null. Tailor recommendations to this role, in English."
         )
     return (
-        "\n\nОпис вакансії не надано. matched_competencies і missing_competencies — порожні списки []. "
-        "match_score і match_score_reasoning — null. Дай загальні рекомендації для ринку праці українською."
+        "\n\nNo job description provided. matched_competencies and missing_competencies must be []. "
+        "match_score and match_score_reasoning must be null. Give general market-oriented recommendations in English."
     )
 
 
@@ -251,6 +314,47 @@ class CVAnalyzer:
             return await self._analyze_with_ollama(cv_text, job)
         return await self._analyze_with_gemini(cv_text, job)
 
+    async def _ollama_raw_json_fallback(
+        self,
+        cv_text_for_prompt: str,
+        job_description_section: str,
+    ) -> Optional[CVAnalysisOutput]:
+        if not self._ollama_llm:
+            return None
+        sys_content = f"{_OLLAMA_FALLBACK_SYSTEM}\n\n{_OLLAMA_FALLBACK_RULES}"
+        human_content = _OLLAMA_FALLBACK_HUMAN.format(
+            cv_text=cv_text_for_prompt,
+            job_description_section=job_description_section,
+        )
+        messages = [
+            SystemMessage(content=sys_content),
+            HumanMessage(content=human_content),
+        ]
+        try:
+            resp = await self._ollama_llm.ainvoke(messages)
+        except Exception:
+            logger.exception("Ollama JSON fallback: invoke failed")
+            return None
+        raw = resp.content
+        if isinstance(raw, list):
+            pieces: List[str] = []
+            for block in raw:
+                if isinstance(block, str):
+                    pieces.append(block)
+                elif isinstance(block, dict):
+                    pieces.append(str(block.get("text", block)))
+                else:
+                    pieces.append(str(block))
+            raw = "".join(pieces)
+        blob = _parse_llm_json_blob(str(raw))
+        if not blob:
+            logger.warning(
+                "Ollama JSON fallback: no JSON in model reply (preview: %.220s)",
+                str(raw).replace("\n", " "),
+            )
+            return None
+        return _cv_output_from_parsed_dict(blob)
+
     async def _run_structured_chain(
         self,
         cv_text: str,
@@ -259,6 +363,8 @@ class CVAnalyzer:
         structured_llm: Any,
         backend: str,
         model_name: str,
+        *,
+        ollama_json_fallback: bool = False,
     ) -> CVAnalysisResponse:
         job_description_section = _job_section(job_description)
         prompt_template = ChatPromptTemplate.from_messages(
@@ -279,6 +385,16 @@ class CVAnalyzer:
             if incomplete:
                 logger.warning("LLM returned incomplete response; filled defaults.")
             if _is_extraction_empty(result):
+                if ollama_json_fallback and self._ollama_llm is not None:
+                    fb = await self._ollama_raw_json_fallback(
+                        cv_text_for_prompt,
+                        job_description_section,
+                    )
+                    if fb is not None:
+                        fb, _fb_inc = _normalize_llm_result(fb)
+                        if not _is_extraction_empty(fb):
+                            logger.info("Ollama: recovered via raw JSON fallback after empty structured output")
+                            return _build_success_response(cv_text, fb, job_description)
                 return CVAnalysisResponse(
                     success=False,
                     extracted_text=cv_text,
@@ -291,7 +407,7 @@ class CVAnalyzer:
                 )
             return _build_success_response(cv_text, result, job_description)
         except Exception as e:
-            error_msg = f"Помилка аналізу: {e!s}\n{traceback.format_exc()}"
+            error_msg = f"Analysis error: {e!s}\n{traceback.format_exc()}"
             return CVAnalysisResponse(success=False, extracted_text=cv_text, error=error_msg)
 
     def _cv_text_for_prompt(self, cv_text: str) -> str:
@@ -300,7 +416,7 @@ class CVAnalyzer:
             logger.warning("CV truncated from %d to %d chars for LLM context", len(cv_text), max_chars)
             return (
                 cv_text[:max_chars]
-                + "\n\n[Текст резюме обрізано для контексту моделі. Витягни дані з наведеного.]"
+                + "\n\n[CV text truncated for model context. Extract from the text above.]"
             )
         return cv_text
 
@@ -319,10 +435,14 @@ class CVAnalyzer:
         if not self._ollama_llm:
             self._ollama_llm = ChatOllama(
                 model=settings.ollama_model,
-                temperature=0.3,
-                num_ctx=8192,
+                temperature=0.2,
+                num_ctx=settings.ollama_num_ctx,
             )
-            logger.info("Using Ollama model: %s", settings.ollama_model)
+            logger.info(
+                "Using Ollama model: %s (num_ctx=%s)",
+                settings.ollama_model,
+                settings.ollama_num_ctx,
+            )
 
         structured_llm = self._ollama_llm.with_structured_output(CVAnalysisOutput)
         return await self._run_structured_chain(
@@ -332,6 +452,7 @@ class CVAnalyzer:
             structured_llm,
             "Ollama",
             settings.ollama_model,
+            ollama_json_fallback=True,
         )
 
     async def _analyze_with_gemini(
