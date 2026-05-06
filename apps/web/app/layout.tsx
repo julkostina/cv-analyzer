@@ -1,15 +1,20 @@
 import type { Metadata } from "next";
-import localFont from "next/font/local";
+import { Noto_Serif_Display, Roboto } from "next/font/google";
 import { SiteShell } from "../components/SiteShell";
 import "./globals.css";
 
-const geistSans = localFont({
-  src: "./fonts/GeistVF.woff",
-  variable: "--font-geist-sans",
+const roboto = Roboto({
+  subsets: ["latin"],
+  weight: ["400", "500", "700"],
+  variable: "--font-body",
+  display: "swap",
 });
-const geistMono = localFont({
-  src: "./fonts/GeistMonoVF.woff",
-  variable: "--font-geist-mono",
+
+const notoSerifDisplay = Noto_Serif_Display({
+  subsets: ["latin"],
+  weight: ["400", "600", "700"],
+  variable: "--font-title",
+  display: "swap",
 });
 
 export const metadata: Metadata = {
@@ -23,8 +28,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
-      <body className={`${geistSans.variable} ${geistMono.variable}`}>
+    <html lang="en" className={`${roboto.variable} ${notoSerifDisplay.variable}`}>
+      <body>
         <SiteShell>{children}</SiteShell>
       </body>
     </html>

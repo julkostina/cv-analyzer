@@ -1,4 +1,7 @@
 :root {
+  --font-family-body: var(--font-body), ui-sans-serif, system-ui, sans-serif;
+  --font-family-title: var(--font-title), "Noto Serif Display", Georgia, serif;
+
   --color-brand-1: #607ee1;
   --color-brand-2: #8360e1;
   --color-brand-3: #c360e1;
@@ -24,6 +27,7 @@ body {
 }
 
 body {
+  font-family: var(--font-family-body);
   color: var(--foreground);
   background-color: var(--background);
   background-image: linear-gradient(
@@ -51,6 +55,19 @@ body {
   box-sizing: border-box;
   padding: 0;
   margin: 0;
+}
+
+h1,
+h2,
+h3 {
+  font-family: var(--font-family-title);
+}
+
+button,
+input,
+textarea,
+select {
+  font-family: inherit;
 }
 
 a {
