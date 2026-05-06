@@ -20,9 +20,7 @@ export function SiteShell({ children }: { children: ReactNode }) {
       </header>
       <div className={styles.content}>{children}</div>
       <footer className={styles.footer}>
-        <p>
-          No sign-up. Analysis runs on your backend API; history is stored in this browser only (localStorage).
-        </p>
+        <p>No sign-up. History of successful analyses is kept in this browser only and is not sent anywhere else.</p>
       </footer>
     </div>
   );
