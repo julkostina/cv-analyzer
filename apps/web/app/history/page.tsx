@@ -8,7 +8,10 @@ import {
   removeHistoryEntry,
   type HistoryEntry,
 } from "../../lib/history-storage";
-import styles from "../page.module.css";
+import { formatPercent } from "../../lib/analysis-format";
+import { PageHeader } from "../../components/page-header/PageHeader";
+import { PageLayout } from "../../components/page-layout/PageLayout";
+import surface from "../../components/ui/surface.module.css";
 import historyStyles from "./history.module.css";
 
 function formatDate(iso: string): string {
@@ -20,11 +23,6 @@ function formatDate(iso: string): string {
   } catch {
     return iso;
   }
-}
-
-function formatPercent(score: number | null | undefined): string {
-  if (score == null || Number.isNaN(score)) return "—";
-  return `${Math.round(score * 1000) / 10}%`;
 }
 
 export default function HistoryPage() {
@@ -52,21 +50,23 @@ export default function HistoryPage() {
   }, [refresh]);
 
   return (
-    <main className={styles.main}>
-      <header className={styles.header}>
-        <h1 className={styles.title}>Analysis history</h1>
-        <p className={styles.subtitle}>
-          Successful runs are saved in this browser. Clearing site data removes them.{" "}
-          <Link href="/">Back to analyzer</Link>
-        </p>
-      </header>
+    <PageLayout>
+      <PageHeader
+        title="Analysis history"
+        subtitle={
+          <>
+            Successful runs are saved in this browser. Clearing site data removes them.{" "}
+            <Link href="/">Back to analyzer</Link>
+          </>
+        }
+      />
 
       {entries.length === 0 ? (
-        <section className={styles.card} aria-labelledby="empty-history">
-          <h2 id="empty-history" className={styles.cardTitle}>
+        <section className={surface.card} aria-labelledby="empty-history">
+          <h2 id="empty-history" className={surface.cardTitle}>
             No saved analyses yet
           </h2>
-          <p className={styles.reasoning}>
+          <p className={surface.reasoning}>
             Run an analysis on the home page. When it succeeds, it is added here automatically.
           </p>
         </section>
@@ -110,6 +110,6 @@ export default function HistoryPage() {
           </ul>
         </>
       )}
-    </main>
+    </PageLayout>
   );
 }

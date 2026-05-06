@@ -1,0 +1,24 @@
+/* Shared cards and text blocks for analyzer + history pages */
+
+.card {
+  border: 1px solid color-mix(in srgb, var(--color-brand-1) 22%, transparent);
+  border-radius: 12px;
+  padding: 1.25rem 1.35rem;
+  background: var(--surface);
+  box-shadow: 0 1px 0 color-mix(in srgb, var(--foreground) 6%, transparent);
+}
+
+.cardTitle {
+  font-size: 0.8rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--color-brand-2);
+  margin-bottom: 0.75rem;
+}
+
+.reasoning {
+  font-size: 0.875rem;
+  line-height: 1.55;
+  white-space: pre-wrap;
+}

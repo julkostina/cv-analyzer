@@ -1,0 +1,61 @@
+.intro {
+  margin-bottom: 2rem;
+  border: 1px solid color-mix(in srgb, var(--color-brand-1) 22%, transparent);
+  border-radius: 12px;
+  padding: 1.35rem 1.45rem;
+  background: var(--surface);
+  box-shadow: 0 1px 0 color-mix(in srgb, var(--foreground) 6%, transparent);
+}
+
+.introTitle {
+  font-size: clamp(1.5rem, 4vw, 1.875rem);
+  font-weight: 650;
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+  margin-bottom: 0.75rem;
+  background: linear-gradient(
+    105deg,
+    var(--color-brand-1) 0%,
+    var(--color-brand-2) 45%,
+    var(--color-brand-3) 100%
+  );
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+@supports not (background-clip: text) {
+  .introTitle {
+    color: var(--color-brand-2);
+    background: none;
+  }
+}
+
+.introLead {
+  font-size: 1rem;
+  line-height: 1.55;
+  margin: 0 0 1rem;
+  opacity: 0.92;
+}
+
+.introList {
+  margin: 0 0 1rem;
+  padding-left: 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+  font-size: 0.95rem;
+  line-height: 1.45;
+}
+
+.introList strong {
+  font-weight: 600;
+  color: var(--color-brand-2);
+}
+
+.introNote {
+  margin: 0;
+  font-size: 0.88rem;
+  line-height: 1.45;
+  opacity: 0.8;
+}
