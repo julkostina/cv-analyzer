@@ -7,11 +7,11 @@ import {
   loadHistory,
   removeHistoryEntry,
   type HistoryEntry,
-} from "../../lib/history-storage";
-import { formatPercent } from "../../lib/analysis-format";
-import { PageHeader } from "../../components/page-header/PageHeader";
-import { PageLayout } from "../../components/page-layout/PageLayout";
-import surface from "../../components/ui/surface.module.css";
+} from "../../../lib/history-storage";
+import { formatPercent } from "../../../lib/analysis-format";
+import { PageHeader } from "../../../components/page-header/PageHeader";
+import { PageLayout } from "../../../components/page-layout/PageLayout";
+import surface from "../../../components/ui/surface.module.css";
 import historyStyles from "./history.module.css";
 
 function formatDate(iso: string): string {
