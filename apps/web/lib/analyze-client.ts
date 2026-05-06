@@ -1,0 +1,82 @@
+import { getApiBaseUrl } from "./config";
+import type { CVAnalysisResponse } from "./types";
+
+export type AnalyzeOptions = {
+  jobDescription?: string;
+  jobUrl?: string;
+  returnPdf?: boolean;
+};
+
+function buildFormData(file: File, options: AnalyzeOptions): FormData {
+  const fd = new FormData();
+  fd.append("file", file);
+  const jd = options.jobDescription?.trim();
+  const ju = options.jobUrl?.trim();
+  if (jd) fd.append("job_description", jd);
+  if (ju) fd.append("job_description_url", ju);
+  if (options.returnPdf) fd.append("return_pdf", "true");
+  return fd;
+}
+
+export async function analyzeCv(
+  file: File,
+  options: AnalyzeOptions,
+): Promise<CVAnalysisResponse> {
+  const res = await fetch(`${getApiBaseUrl()}/api/v1/analyze`, {
+    method: "POST",
+    body: buildFormData(file, { ...options, returnPdf: false }),
+  });
+
+  const ct = res.headers.get("content-type") ?? "";
+  if (!ct.includes("application/json")) {
+    const text = await res.text();
+    throw new Error(
+      res.ok
+        ? "Unexpected server response (expected JSON)."
+        : `Error ${res.status}: ${text.slice(0, 200)}`,
+    );
+  }
+
+  const data = (await res.json()) as CVAnalysisResponse | { detail?: unknown };
+
+  if (!res.ok) {
+    const detail = (data as { detail?: unknown }).detail;
+    let msg: string;
+    if (typeof detail === "string") {
+      msg = detail;
+    } else if (Array.isArray(detail)) {
+      msg = detail
+        .map((d) => {
+          if (d && typeof d === "object" && "msg" in d) return String((d as { msg: unknown }).msg);
+          return JSON.stringify(d);
+        })
+        .join("; ");
+    } else {
+      msg = JSON.stringify(detail ?? data);
+    }
+    throw new Error(msg || `Request failed (${res.status})`);
+  }
+
+  return data as CVAnalysisResponse;
+}
+
+export async function downloadAnalysisPdf(
+  file: File,
+  options: AnalyzeOptions,
+): Promise<Blob> {
+  const res = await fetch(`${getApiBaseUrl()}/api/v1/analyze`, {
+    method: "POST",
+    body: buildFormData(file, { ...options, returnPdf: true }),
+  });
+
+  if (!res.ok) {
+    const ct = res.headers.get("content-type") ?? "";
+    if (ct.includes("application/json")) {
+      const err = (await res.json()) as { detail?: string };
+      throw new Error(err.detail ?? `Error ${res.status}`);
+    }
+    throw new Error(`Could not download PDF (${res.status})`);
+  }
+
+  return res.blob();
+}
