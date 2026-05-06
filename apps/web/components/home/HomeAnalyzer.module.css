@@ -119,18 +119,13 @@
 .btnPrimary {
   border: none;
   color: #fff;
-  background: linear-gradient(
-    125deg,
-    var(--color-brand-1) 0%,
-    var(--color-brand-2) 52%,
-    var(--color-brand-3) 100%
-  );
-  box-shadow: 0 2px 12px color-mix(in srgb, var(--color-brand-2) 35%, transparent);
+  background: var(--color-brand-2);
+  box-shadow: 0 2px 12px rgba(131, 96, 225, 0.35);
 }
 
 .btnPrimary:hover:not(:disabled) {
   filter: brightness(1.06);
-  box-shadow: 0 3px 16px color-mix(in srgb, var(--color-brand-2) 45%, transparent);
+  box-shadow: 0 3px 16px rgba(131, 96, 225, 0.45);
 }
 
 .btnSecondary {
@@ -172,17 +167,7 @@
   font-size: 2rem;
   font-weight: 700;
   letter-spacing: -0.03em;
-  background: linear-gradient(100deg, var(--color-brand-1), var(--color-brand-3));
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
-}
-
-@supports not (background-clip: text) {
-  .scoreBig {
-    color: var(--color-brand-1);
-    background: none;
-  }
+  color: var(--color-brand-1);
 }
 
 .semantic {

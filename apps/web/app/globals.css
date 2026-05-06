@@ -5,18 +5,19 @@
   --color-brand-1: #607ee1;
   --color-brand-2: #8360e1;
   --color-brand-3: #c360e1;
+
   --foreground: #151722;
   --surface: #ffffff;
-  --surface-muted: color-mix(in srgb, var(--color-brand-1) 7%, var(--surface));
-  --background: color-mix(in srgb, var(--color-brand-1) 11%, #f9f9ff);
+  --surface-muted: #f4f6fc;
+  --background: #f9f9ff;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
     --foreground: #eceef6;
     --surface: #16182a;
-    --surface-muted: color-mix(in srgb, var(--color-brand-2) 14%, var(--surface));
-    --background: color-mix(in srgb, var(--color-brand-1) 22%, #0a0a12);
+    --surface-muted: #1c1f33;
+    --background: #0a0a12;
   }
 }
 
@@ -30,25 +31,7 @@ body {
   font-family: var(--font-family-body);
   color: var(--foreground);
   background-color: var(--background);
-  background-image: linear-gradient(
-    168deg,
-    color-mix(in srgb, var(--color-brand-1) 14%, #f4f6ff) 0%,
-    color-mix(in srgb, var(--color-brand-2) 12%, #f3f1fc) 42%,
-    color-mix(in srgb, var(--color-brand-3) 13%, #faf4fc) 100%
-  );
-  background-attachment: fixed;
   min-height: 100vh;
-}
-
-@media (prefers-color-scheme: dark) {
-  body {
-    background-image: linear-gradient(
-      168deg,
-      color-mix(in srgb, var(--color-brand-1) 28%, #0c0d18) 0%,
-      color-mix(in srgb, var(--color-brand-2) 24%, #0e0c1a) 45%,
-      color-mix(in srgb, var(--color-brand-3) 22%, #100d18) 100%
-    );
-  }
 }
 
 * {
@@ -80,19 +63,8 @@ a:hover {
   text-decoration: underline;
 }
 
-.imgDark {
-  display: none;
-}
-
 @media (prefers-color-scheme: dark) {
   html {
     color-scheme: dark;
-  }
-
-  .imgLight {
-    display: none;
-  }
-  .imgDark {
-    display: unset;
   }
 }
