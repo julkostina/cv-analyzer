@@ -1,5 +1,8 @@
 import styles from "./HomeAnalyzer.module.css";
 
+const DOWNLOAD_PDF_TOOLTIP =
+  "The PDF reflects the same inputs as your analysis. If the resume or job details cannot be processed, you will see an error message instead of a download.";
+
 export type AnalyzerFormProps = {
   file: File | null;
   onFileChange: (file: File | null) => void;
@@ -27,9 +30,9 @@ export function AnalyzerForm({
 }: AnalyzerFormProps) {
   return (
     <form className={styles.steps} onSubmit={onSubmit}>
-      <section className={styles.card} aria-labelledby="step1">
-        <h2 id="step1" className={styles.cardTitle}>
-          Step 1 — resume
+      <section className={styles.card} aria-labelledby="resume-heading">
+        <h2 id="resume-heading" className={styles.cardTitle}>
+          Resume
         </h2>
         <div className={styles.field}>
           <label className={styles.label} htmlFor="cv-file">
@@ -49,9 +52,9 @@ export function AnalyzerForm({
         </div>
       </section>
 
-      <section className={styles.card} aria-labelledby="step2">
-        <h2 id="step2" className={styles.cardTitle}>
-          Step 2 — job (optional)
+      <section className={styles.card} aria-labelledby="job-heading">
+        <h2 id="job-heading" className={styles.cardTitle}>
+          Job (optional)
         </h2>
         <div className={styles.field}>
           <label className={styles.label} htmlFor="job-text">
@@ -84,10 +87,7 @@ export function AnalyzerForm({
         </div>
       </section>
 
-      <section className={styles.card} aria-labelledby="step3">
-        <h2 id="step3" className={styles.cardTitle}>
-          Step 3 — result
-        </h2>
+      <section className={styles.card} aria-label="Run analysis or download PDF">
         <div className={styles.actions}>
           <button type="submit" className={`${styles.btnBase} ${styles.btnPrimary}`} disabled={loading}>
             {loading ? "Analyzing…" : "Run analysis"}
@@ -97,14 +97,15 @@ export function AnalyzerForm({
             className={`${styles.btnBase} ${styles.btnSecondary}`}
             disabled={pdfLoading || !file}
             onClick={onDownloadPdf}
+            title={DOWNLOAD_PDF_TOOLTIP}
+            aria-describedby="download-pdf-help"
           >
             {pdfLoading ? "PDF…" : "Download PDF"}
           </button>
         </div>
-        <p className={styles.hint}>
-          The PDF reflects the same inputs as your analysis. If the resume or job details cannot be processed, you
-          will see an error message instead of a download.
-        </p>
+        <span id="download-pdf-help" className={styles.visuallyHidden}>
+          {DOWNLOAD_PDF_TOOLTIP}
+        </span>
       </section>
     </form>
   );

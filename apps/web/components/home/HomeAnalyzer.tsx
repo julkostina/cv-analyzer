@@ -74,7 +74,10 @@ export function HomeAnalyzer() {
         <h2 id="service-heading" className={styles.serviceHeading}>
           Run an analysis
         </h2>
-        <p className={styles.serviceSub}>Follow the steps below. Supported resume formats: PDF and DOCX.</p>
+        <p className={styles.serviceSub}>
+          Add your resume and optional job details, then run an analysis or download a PDF. Supported formats: PDF and
+          DOCX.
+        </p>
 
         <AnalyzerForm
           file={file}
