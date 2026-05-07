@@ -10,6 +10,18 @@
   --surface: #ffffff;
   --surface-muted: #f4f6fc;
   --background: #f9f9ff;
+
+  --border-soft: rgba(96, 126, 225, 0.18);
+  --border-normal: rgba(96, 126, 225, 0.22);
+  --border-strong: rgba(96, 126, 225, 0.28);
+  --border-emphasis: rgba(96, 126, 225, 0.55);
+  --border-subtle: rgba(96, 126, 225, 0.2);
+  --focus-ring: rgba(96, 126, 225, 0.65);
+  --surface-shadow: rgba(21, 23, 34, 0.06);
+  --surface-tint: rgba(96, 126, 225, 0.1);
+  --danger-bg: rgba(192, 57, 43, 0.14);
+  --danger-border: rgba(192, 57, 43, 0.4);
+  --semantic-text: #3d4c8f;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -18,6 +30,10 @@
     --surface: #16182a;
     --surface-muted: #1c1f33;
     --background: #0a0a12;
+
+    --surface-shadow: rgba(0, 0, 0, 0.3);
+    --surface-tint: rgba(96, 126, 225, 0.16);
+    --semantic-text: #c7cfef;
   }
 }
 

@@ -22,5 +22,5 @@
   padding: 0.12em 0.35em;
   border-radius: 4px;
   background: var(--surface-muted);
-  border: 1px solid color-mix(in srgb, var(--color-brand-1) 22%, transparent);
+  border: 1px solid var(--border-normal);
 }
