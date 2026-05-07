@@ -1,62 +1,74 @@
 .intro {
   width: 100vw;
-  margin-left: calc(50% - 50vw);
-  margin-right: calc(50% - 50vw);
+  margin: 0 calc(50% - 50vw);
   margin-bottom: 0;
-  padding-top: clamp(1.75rem, 5vw, 2.75rem);
-  padding-bottom: clamp(2.5rem, 7vw, 4rem);
-  background: var(--section-about-bg);
-  border: none;
-  border-radius: 0;
-  box-shadow: none;
+  min-height: 85vh;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: clamp(5.5rem, 14vh, 8rem) 0;
+  background: linear-gradient(rgba(0, 0, 0, 0.422), rgba(0, 0, 0, 0.6)),
+    url("/images/about-hero-graphic.svg") right clamp(0.25rem, 3vw, 2rem) center / min(46vw, 26rem) auto,
+    var(--section-about-hero-bg);
+  color: var(--section-about-hero-text);
+}
+
+.introContent {
+  position: relative;
+  z-index: 1;
+  padding-right: clamp(1rem, 20vw, 24rem);
+  display: inline-block;
 }
 
 .introTitle {
-  font-size: clamp(1.5rem, 4vw, 1.875rem);
-  font-weight: 650;
-  letter-spacing: -0.02em;
-  line-height: 1.2;
-  margin-bottom: 0.75rem;
-  color: var(--color-brand-2);
+  font-size: clamp(2.15rem, 6.5vw, 3.35rem);
+  font-weight: 900;
+  letter-spacing: -0.03em;
+  line-height: 1.5;
+  margin-bottom: clamp(1rem, 3vw, 1.35rem);
+  color: var(--section-about-hero-heading);
 }
 
 .introLead {
-  font-size: 1rem;
-  line-height: 1.55;
+  font-size: clamp(1rem, 2.2vw, 1.08rem);
+  line-height: 1.5;
   margin: 0 0 1rem;
-  opacity: 0.92;
+  background: var(--section-about-hero-bg);
+  opacity: 1;
 }
 
 .introLead:last-of-type {
   margin-bottom: 0;
 }
 
+.introNote {
+  margin: clamp(1.35rem, 4vw, 2rem) 0 0;
+  font-size: clamp(0.88rem, 2vw, 0.95rem);
+  color: var(--section-about-hero-text);
+  opacity: 0.85;
+  display: inline-block;
+  padding: 0.25rem 0.5rem;
+  background-color: var(--color-brand-3);
+  color: var(--surface);
+}
+
 .featuresSection {
   width: 100vw;
-  margin-left: calc(50% - 50vw);
-  margin-right: calc(50% - 50vw);
-  margin-top: clamp(2.5rem, 6vw, 4.5rem);
-  padding-top: clamp(2.75rem, 7vw, 4.25rem);
-  padding-bottom: clamp(2.75rem, 7vw, 4.25rem);
+  margin: 0 calc(50% - 50vw);
+  padding: 6rem 0;
   background: var(--surface-muted);
   border-top: 1px solid var(--border-soft);
 }
 
 .featuresHeading {
-  font-family: var(--font-family-body);
-  font-size: clamp(1.05rem, 2.5vw, 1.2rem);
-  font-weight: 650;
-  letter-spacing: -0.02em;
-  line-height: 1.3;
-  margin: 0 0 clamp(1.35rem, 4vw, 2rem);
-  color: var(--foreground);
-}
-
-.featuresNote {
-  margin: clamp(1.75rem, 5vw, 2.75rem) 0 0;
-  font-size: 0.88rem;
-  line-height: 1.45;
-  opacity: 0.8;
+  font-size: clamp(2.15rem, 6.5vw, 3.35rem);
+  font-weight: 900;
+  letter-spacing: -0.03em;
+  line-height: 1.5;
+  margin: 0 0 clamp(1rem, 3vw, 1.35rem);
+  color: var(--color-brand-2);
+  display: inline-block;
+  border-bottom: 2px dotted var(--color-brand-2);
 }
 
 .carouselViewport {
@@ -79,40 +91,41 @@
   flex-direction: row;
   flex-wrap: nowrap;
   align-items: stretch;
-  gap: 1rem;
+  gap: 1.25rem;
   width: max-content;
   padding-inline: clamp(1.25rem, 4vw, 2.5rem);
 }
 
 .carouselCardWrap {
   flex: 0 0 auto;
-  width: min(17rem, 86vw);
+  width: min(21.5rem, 92vw);
 }
 
 .featureCard {
   height: 100%;
-  min-height: 9.5rem;
-  padding: 1.1rem 1.15rem;
-  border-radius: 12px;
-  border: 1px solid var(--border-normal);
+  min-height: 11.5rem;
+  padding: 1.35rem 1.4rem;
+  border-radius: 14px;
+  border: 1px solid var(--color-brand-1);
   background: var(--surface);
-  box-shadow: 0 2px 12px var(--surface-shadow);
+  box-shadow: 1px 1px 10px 1px var(--color-brand-1);
 }
 
 .featureTitle {
   font-family: var(--font-family-body);
-  font-size: 0.95rem;
-  font-weight: 650;
-  letter-spacing: -0.01em;
-  line-height: 1.25;
-  margin: 0 0 0.45rem;
-  color: var(--color-brand-2);
+  font-size: 1rem;
+  font-weight: 400;
+  padding: 0.15rem 0.5rem;
+  display: inline-block;
+  margin: 0 0 0.55rem;
+  background-color: var(--color-brand-3);
+  color: var(--surface);
 }
 
 .featureDescription {
   margin: 0;
-  font-size: 0.875rem;
-  line-height: 1.5;
+  font-size: clamp(0.92rem, 2vw, 0.98rem);
+  line-height: 1.52;
   opacity: 0.9;
 }
 
@@ -125,7 +138,7 @@
   margin: 0;
   padding: 0;
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(min(100%, 15.5rem), 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 19rem), 1fr));
   gap: 1rem;
 }
 

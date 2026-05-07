@@ -56,7 +56,6 @@ function FeatureMarqueeStatic() {
   );
 }
 
-/** Only mounted when reduced motion is off — effect deps stay `[]`. */
 function FeatureMarqueeAnimated() {
   const trackRef = useRef<HTMLDivElement>(null);
   const [loopWidth, setLoopWidth] = useState(0);
@@ -104,7 +103,7 @@ export function AboutSection() {
   return (
     <>
       <section className={styles.intro} aria-labelledby="about-heading">
-        <div className="container">
+        <div className={`container ${styles.introContent}`}>
           <h1 id="about-heading" className={styles.introTitle}>
             CV Analyzer
           </h1>
@@ -117,23 +116,20 @@ export function AboutSection() {
             posting, and get structured feedback tied to that specific role — not generic advice, but an analysis of how
             your profile actually reads against what the employer is asking for.
           </p>
+          <p className={styles.introNote}>
+            No account needed. Your files are used only during analysis and never stored after processing completes.
+          </p>
         </div>
       </section>
 
       <section className={styles.featuresSection} aria-labelledby="about-what-you-get">
         <div className="container">
           <h2 id="about-what-you-get" className={styles.featuresHeading}>
-            What you get:
+            What you get
           </h2>
         </div>
 
         {prefersReducedMotion ? <FeatureMarqueeStatic /> : <FeatureMarqueeAnimated />}
-
-        <div className="container">
-          <p className={styles.featuresNote}>
-            No account needed. Your files are used only during analysis and never stored after processing completes.
-          </p>
-        </div>
       </section>
     </>
   );
