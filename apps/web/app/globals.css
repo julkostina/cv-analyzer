@@ -12,9 +12,14 @@
   --background: #f7f8ff;
   /* Full-width section bands (light tints, no card chrome) */
   --section-about-bg: #eef1fb;
+  /* Dark hero band behind home about / CV Analyzer intro */
+  --section-about-hero-bg: #1a1f2e;
+  --section-about-hero-text: rgba(236, 238, 246, 0.88);
+  --section-about-hero-heading: #ddd0f7;
+  --section-about-hero-border: rgba(255, 255, 255, 0.1);
   --section-analyzer-bg: #f5f1fb;
 
-  --container-max: 56rem;
+  --container-max: 80rem;
   --container-pad-x: clamp(1.25rem, 4vw, 2.5rem);
 
   --border-soft: rgba(96, 126, 225, 0.18);
