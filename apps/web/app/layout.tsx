@@ -12,7 +12,7 @@ const roboto = Roboto({
 
 const notoSerifDisplay = Noto_Serif_Display({
   subsets: ["latin"],
-  weight: ["400", "600", "700"],
+  weight: ["400", "600", "700", "900"],
   variable: "--font-title",
   display: "swap",
 });
