@@ -37,10 +37,15 @@
 }
 
 .item {
-  padding: 1rem 1.1rem;
-  border-radius: 12px;
-  border: 1px solid var(--border, rgba(255, 255, 255, 0.1));
-  background: var(--card-bg, rgba(255, 255, 255, 0.04));
+  padding: 1rem 0;
+  border-radius: 0;
+  border: none;
+  border-bottom: 1px solid var(--border-soft);
+  background: transparent;
+}
+
+.item:last-child {
+  border-bottom: none;
 }
 
 .itemHead {

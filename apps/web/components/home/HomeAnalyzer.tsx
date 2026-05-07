@@ -70,31 +70,33 @@ export function HomeAnalyzer() {
 
   return (
     <section className={styles.service} aria-labelledby="service-heading">
-      <h2 id="service-heading" className={styles.serviceHeading}>
-        Run an analysis
-      </h2>
-      <p className={styles.serviceSub}>Follow the steps below. Supported resume formats: PDF and DOCX.</p>
+      <div className="container">
+        <h2 id="service-heading" className={styles.serviceHeading}>
+          Run an analysis
+        </h2>
+        <p className={styles.serviceSub}>Follow the steps below. Supported resume formats: PDF and DOCX.</p>
 
-      <AnalyzerForm
-        file={file}
-        onFileChange={setFile}
-        jobDescription={jobDescription}
-        onJobDescriptionChange={setJobDescription}
-        jobUrl={jobUrl}
-        onJobUrlChange={setJobUrl}
-        loading={loading}
-        pdfLoading={pdfLoading}
-        onSubmit={onSubmit}
-        onDownloadPdf={onDownloadPdf}
-      />
+        <AnalyzerForm
+          file={file}
+          onFileChange={setFile}
+          jobDescription={jobDescription}
+          onJobDescriptionChange={setJobDescription}
+          jobUrl={jobUrl}
+          onJobUrlChange={setJobUrl}
+          loading={loading}
+          pdfLoading={pdfLoading}
+          onSubmit={onSubmit}
+          onDownloadPdf={onDownloadPdf}
+        />
 
-      {error ? (
-        <div className={styles.error} role="alert">
-          {error}
-        </div>
-      ) : null}
+        {error ? (
+          <div className={styles.error} role="alert">
+            {error}
+          </div>
+        ) : null}
 
-      <AnalysisResults result={result} />
+        <AnalysisResults result={result} />
+      </div>
     </section>
   );
 }

@@ -11,10 +11,12 @@
   justify-content: space-between;
   gap: 1rem;
   padding: 0.875rem 1.25rem;
-  border-bottom: 1px solid var(--border, rgba(255, 255, 255, 0.12));
-  background: var(--surface, rgba(15, 18, 32, 0.85));
+  border-bottom: 1px solid rgba(255, 255, 255, 0.14);
+  background: #151722;
+  color: #eceef6;
   backdrop-filter: blur(10px);
-  position: sticky;
+  position: fixed;
+  width: 100%;
   top: 0;
   z-index: 20;
 }
@@ -57,7 +59,9 @@
 .footer {
   margin-top: auto;
   padding: 1rem 1.25rem 1.5rem;
-  border-top: 1px solid var(--border, rgba(255, 255, 255, 0.1));
+  border-top: 1px solid rgba(255, 255, 255, 0.12);
+  background: #151722;
+  color: #eceef6;
   font-size: 0.8125rem;
   opacity: 0.75;
   text-align: center;

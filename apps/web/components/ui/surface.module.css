@@ -1,11 +1,11 @@
-/* Shared cards and text blocks for analyzer + history pages */
+/* Shared text blocks (history empty state, etc.) — flat, not card-shaped */
 
 .card {
-  border: 1px solid var(--border-normal);
-  border-radius: 12px;
-  padding: 1.25rem 1.35rem;
-  background: var(--surface);
-  box-shadow: 0 1px 0 var(--surface-shadow);
+  border: none;
+  border-radius: 0;
+  padding: clamp(1.25rem, 3vw, 1.75rem) 0;
+  background: transparent;
+  box-shadow: none;
 }
 
 .cardTitle {
