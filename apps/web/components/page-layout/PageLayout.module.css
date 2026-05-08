@@ -1,7 +1,8 @@
 .main {
   min-height: 100vh;
   max-width: var(--container-max);
-  margin: 0 auto;
-  padding-left: var(--container-pad-x);
-  padding-right: var(--container-pad-x);
+  margin: 6rem auto 2rem auto;
+  background: var(--surface-muted);
+  padding: var(--container-pad-x);
+  border-radius: 8px;
 }
