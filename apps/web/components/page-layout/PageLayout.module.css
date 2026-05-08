@@ -1,7 +1,5 @@
 .main {
   min-height: 100vh;
-  padding-top: var(--container-pad-x);
-  padding-bottom: var(--container-pad-x);
   max-width: var(--container-max);
   margin: 0 auto;
   padding-left: var(--container-pad-x);

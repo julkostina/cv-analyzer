@@ -3,7 +3,7 @@
 .card {
   border: none;
   border-radius: 0;
-  padding: clamp(1.25rem, 3vw, 1.75rem) 0;
+  padding: 1.5rem 0;
   background: transparent;
   box-shadow: none;
 }
