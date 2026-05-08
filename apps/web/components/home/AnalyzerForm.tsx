@@ -34,21 +34,37 @@ export function AnalyzerForm({
         <h2 id="resume-heading" className={styles.cardTitle}>
           Resume
         </h2>
-        <div className={styles.field}>
-          <label className={styles.label} htmlFor="cv-file">
-            PDF or DOCX file
-          </label>
-          <input
-            id="cv-file"
-            className={styles.input}
-            type="file"
-            accept=".pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-            onChange={(ev) => {
-              const f = ev.target.files?.[0];
-              onFileChange(f ?? null);
-            }}
-          />
-          <span className={styles.hint}>{file ? file.name : "No file selected"}</span>
+        <div className={styles.resumeRow}>
+          <div className={`${styles.field} ${styles.resumeFileField}`}>
+            <label className={styles.label} htmlFor="cv-file">
+              PDF or DOCX file
+            </label>
+            <input
+              id="cv-file"
+              className={styles.input}
+              type="file"
+              accept=".pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+              onChange={(ev) => {
+                const f = ev.target.files?.[0];
+                onFileChange(f ?? null);
+              }}
+            />
+          </div>
+          <div className={`${styles.field} ${styles.resumeUrlField}`}>
+            <label className={styles.label} htmlFor="job-url">
+              Link to the job page
+            </label>
+            <input
+              id="job-url"
+              className={styles.input}
+              type="url"
+              inputMode="url"
+              value={jobUrl}
+              onChange={(ev) => onJobUrlChange(ev.target.value)}
+              placeholder="https://…"
+              autoComplete="off"
+            />
+          </div>
         </div>
       </section>
 
@@ -68,22 +84,6 @@ export function AnalyzerForm({
             placeholder="Paste the posting text or key requirements…"
             rows={6}
           />
-        </div>
-        <div className={styles.field}>
-          <label className={styles.label} htmlFor="job-url">
-            Or a link to the job page
-          </label>
-          <input
-            id="job-url"
-            className={styles.input}
-            type="url"
-            inputMode="url"
-            value={jobUrl}
-            onChange={(ev) => onJobUrlChange(ev.target.value)}
-            placeholder="https://…"
-            autoComplete="off"
-          />
-          <span className={styles.hint}>You can fill only text, only URL, or both.</span>
         </div>
       </section>
 
