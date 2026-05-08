@@ -49,7 +49,6 @@ export function AnalysisResults({ result }: AnalysisResultsProps) {
           <h2 className={styles.cardTitle}>Job match</h2>
           <div className={styles.scoreRow}>
             <span className={styles.scoreBig}>{formatPercent(result.match_score)}</span>
-            <span className={styles.hint}>semantic score (0–100%)</span>
           </div>
           {result.semantic_breakdown ? (
             <div className={styles.semantic}>
