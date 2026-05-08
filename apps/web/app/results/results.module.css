@@ -1,0 +1,13 @@
+.page {
+  background-color: var(--color-brand-1);
+  padding: 6rem var(--container-pad-x) 2.5rem;
+  min-height: calc(100dvh - 6rem);
+}
+
+.content {
+  max-width: var(--container-max);
+  margin-inline: auto;
+  background: var(--surface);
+  padding: var(--container-pad-x);
+  border-radius: 8px;
+}
