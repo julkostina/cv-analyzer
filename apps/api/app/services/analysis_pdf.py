@@ -67,65 +67,97 @@ def render_analysis_pdf(resp: CVAnalysisResponse) -> bytes:
         pdf.ln(2)
 
     pdf.set_font("DejaVu", "", 14)
-    _line("Resume analysis report")
+    _line("Звіт з аналізу резюме")
     pdf.set_font("DejaVu", "", 11)
 
     if not resp.success:
-        _line("Processing error")
-        _line(resp.error or "Unknown error")
+        _line("Помилка обробки")
+        _line(resp.error or "Невідома помилка")
         return _pdf_bytes(pdf)
 
     if resp.match_score is not None:
         pct = round(float(resp.match_score) * 100, 1)
-        _line(f"Job match score: {pct}%")
+        _line(f"Бал відповідності вакансії: {pct}%")
 
     if resp.semantic_breakdown:
         sb = resp.semantic_breakdown
-        _line("Semantic breakdown (similarity 0–1):")
+        _line("Семантичне розбиття (схожість 0–1):")
         _line(
-            f"  Skills: {sb.get('skills_similarity', 0):.3f}\n"
-            f"  Experience: {sb.get('experience_similarity', 0):.3f}\n"
-            f"  Overall: {sb.get('overall_similarity', 0):.3f}"
+            f"  Навички: {sb.get('skills_similarity', 0):.3f}\n"
+            f"  Досвід: {sb.get('experience_similarity', 0):.3f}\n"
+            f"  Усе резюме vs вакансія: {sb.get('overall_similarity', 0):.3f}"
         )
+        if resp.semantic_weights:
+            sw = resp.semantic_weights
+            _line(
+                "  Ваги (навички, досвід, усе резюме vs вакансія): "
+                f"{sw.get('skills', 0):.3f}, {sw.get('experience', 0):.3f}, {sw.get('overall', 0):.3f}"
+            )
+
+    if resp.semantic_score_narrative:
+        _line("Інтерпретація (з моделі):")
+        _line(resp.semantic_score_narrative)
 
     if resp.match_score_reasoning:
-        _line("Score rationale:")
+        _line("Обґрунтування балу:")
         _line(resp.match_score_reasoning)
 
+    if resp.match_explainability:
+        me = resp.match_explainability
+        if me.component_attributions:
+            _line("Внесок блоків у загальний бал (SHAP, лінійна декомпозиція):")
+            labels = {"skills": "Навички", "experience": "Досвід", "overall": "Усе резюме vs вакансія"}
+            for key, label in labels.items():
+                val = me.component_attributions.get(key)
+                if val is not None:
+                    _line(f"  {label}: {val * 100:+.2f} п.п.")
+        for method_result, title in ((me.shap, "SHAP"), (me.lime, "LIME")):
+            if not method_result:
+                continue
+            _line(f"{title} (локальні атрибуції):")
+            if method_result.top_positive:
+                _line("  Підвищують бал:")
+                for item in method_result.top_positive:
+                    _line(f"    • {item.feature}: {item.contribution * 100:+.2f} п.п.")
+            if method_result.top_negative:
+                _line("  Знижують бал:")
+                for item in method_result.top_negative:
+                    _line(f"    • {item.feature}: {item.contribution * 100:+.2f} п.п.")
+
     if resp.matched_competencies:
-        _line("Matched competencies:")
+        _line("Відповідні компетенції:")
         _line("\n".join(f"• {x}" for x in resp.matched_competencies))
 
     if resp.missing_competencies:
-        _line("Missing or weak competencies:")
+        _line("Слабкі або відсутні компетенції:")
         _line("\n".join(f"• {x}" for x in resp.missing_competencies))
 
     if resp.analysis:
         summ = resp.analysis.get("summary")
         if summ:
-            _line("Summary:")
+            _line("Підсумок:")
             _line(str(summ))
         strengths = resp.analysis.get("strengths")
         if strengths:
-            _line("Strengths:")
+            _line("Сильні сторони:")
             if isinstance(strengths, list):
                 _line("\n".join(f"• {s}" for s in strengths))
             else:
                 _line(str(strengths))
         weaknesses = resp.analysis.get("weaknesses")
         if weaknesses:
-            _line("Weaknesses:")
+            _line("Слабкі сторони:")
             if isinstance(weaknesses, list):
                 _line("\n".join(f"• {w}" for w in weaknesses))
             else:
                 _line(str(weaknesses))
 
     if resp.recommendations:
-        _line("Recommendations:")
+        _line("Рекомендовані покращення:")
         _line("\n".join(f"• {r}" for r in resp.recommendations))
 
     if resp.skills:
-        _line("Extracted skills:")
+        _line("Витягнуті навички:")
         _line(", ".join(resp.skills))
 
     return _pdf_bytes(pdf)
