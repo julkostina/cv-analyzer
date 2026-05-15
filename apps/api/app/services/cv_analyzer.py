@@ -2,7 +2,7 @@ import json
 import logging
 import re
 import traceback
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 from langchain_core.messages import HumanMessage, SystemMessage
 from langchain_core.prompts import ChatPromptTemplate
@@ -17,66 +17,73 @@ from app.models import (
     ExperienceItem,
     ProjectItem,
 )
-from app.services.semantic_matcher import SemanticMatchResult, compute_semantic_match
+from app.services.semantic_matcher import (
+    SEMANTIC_METRIC_GUIDES,
+    SemanticMatchResult,
+    compute_semantic_match,
+    normalized_semantic_weights,
+)
+from app.services.match_explainer import explain_match_score
 from app.utils.text_preprocess import normalize_text_for_pipeline
 
 logger = logging.getLogger(__name__)
 
 _HUMAN_PROMPT = (
-    "Return the FULL JSON: skills, experience, certificates, education, projects, "
+    "Поверни ПОВНИЙ JSON з ключами (англійською, як у схемі): skills, experience, certificates, education, projects, "
     "analysis, matched_competencies, missing_competencies, match_score (null), "
-    "match_score_reasoning (null), recommendations. Use [] for empty lists.\n\nCV:\n{cv_text}\n{job_description_section}"
+    "match_score_reasoning (null), recommendations. Для порожніх списків використовуй [].\n\nРезюме:\n{cv_text}\n{job_description_section}"
 )
 
-_CV_ANALYZER_SYSTEM = """You are an AI CV analyzer.
+_CV_ANALYZER_SYSTEM = """Ти — ШІ-аналітик резюме.
 
-Task: extract structured data from the CV text and return a COMPLETE JSON object every time.
+Завдання: витягни структуровані дані з тексту резюме й щоразу поверни ПОВНИЙ JSON-об’єкт.
 
-CRITICAL: all user-facing text (summaries, recommendations, skills lines, matched_competencies, missing_competencies, employer/title/name fields, etc.) must be in English. Technology names (React, TypeScript) stay as usual.
+КРИТИЧНО: увесь текст для користувача (підсумки, рекомендації, рядки навичок, matched_competencies, missing_competencies, поля роботодавця/посади/назв тощо) — українською мовою. Назви технологій (React, TypeScript) залишай латиницею.
 
-Required arrays: skills, experience, certificates, education, projects — use [] when empty. Do not use null for these arrays.
+Обов’язкові масиви: skills, experience, certificates, education, projects — якщо порожньо, використовуй [], не null.
 
-analysis — object with keys summary, strengths, weaknesses (English). strengths and weaknesses may be strings or short lists.
+analysis — об’єкт із ключами summary, strengths, weaknesses (українською). strengths і weaknesses можуть бути рядком або коротким списком.
 
-recommendations — at least one string in English.
+recommendations — щонайменше один рядок українською. Кожен пункт — КОНКРЕТНА порада щодо покращення резюме/кандидатури (редагування CV, навички, які варто підкреслити, проєкти, прогалини). Пиши наказовим або на «ви» («Додайте…», «Сформулюйте…», «Розгляньте…»). Не рекламуй вакансії, не описуй «переваги ролі», не використовуй штампи на кшталт «ви матимете можливість», «ви працюватимете над…», «як [посада] ви будете…».
 
-If a job description is provided:
-- matched_competencies — job requirements/skills clearly supported by the CV.
-- missing_competencies — job requirements weak or missing in the CV.
-- match_score and match_score_reasoning must always be null (the server fills them via semantic scoring).
+Якщо є опис вакансії:
+- matched_competencies — вимоги/навички з оголошення, які чітко підтверджує резюме.
+- missing_competencies — вимоги, які у резюме слабкі або відсутні.
+- match_score і match_score_reasoning завжди null (сервер заповнить їх семантичною оцінкою).
 
-If no job description:
+Якщо опису вакансії немає:
 - matched_competencies: [], missing_competencies: [].
-- match_score and match_score_reasoning: null.
-- recommendations — general market-oriented advice in English.
+- match_score і match_score_reasoning: null.
+- recommendations — загальні ринкові поради щодо покращення резюме (ті самі правила: лише дії для кандидата).
 
-Classification:
-- EXPERIENCE — jobs, internships, freelance with duties. Not courses.
-- CERTIFICATES — courses, training (Meta, Coursera, Epam, AWS) without job duties.
-- EDUCATION — universities, degrees.
-- PROJECTS — pet projects, GitHub without formal employment.
+Класифікація:
+- EXPERIENCE — роботи, стажування, фриланс з обов’язками. Не курси.
+- CERTIFICATES — курси, тренінги (Meta, Coursera, Epam, AWS) без робочих обов’язків.
+- EDUCATION — університети, ступені.
+- PROJECTS — пет-проєкти, GitHub без формального найму.
 
-PDF text order may be broken — classify by content.
+Порядок тексту в PDF може бути зламаним — класифікуй за змістом.
 
-Rules: Meta / Course / Program without work tasks → CERTIFICATE. Words "course", "training", "program" in a learning context → CERTIFICATE. Work tasks described → EXPERIENCE. GitHub link and no hiring company → PROJECT.
+Правила: Meta / Course / Program без робочих задач → CERTIFICATE. Слова «курс», «навчання», «програма» в навчальному контексті → CERTIFICATE. Описані робочі задачі → EXPERIENCE. Лише GitHub без компанії-наймача → PROJECT.
 """
 
 _OLLAMA_FALLBACK_SYSTEM = (
-    "Return exactly ONE valid JSON object and nothing else: no markdown, no code fences, no text before or after. "
-    "Keys (English): skills, experience, certificates, education, projects, analysis, "
+    "Поверни рівно ОДИН валідний JSON-об’єкт і нічого більше: без markdown, без огорож коду, без тексту до чи після. "
+    "Ключі (англійською): skills, experience, certificates, education, projects, analysis, "
     "matched_competencies, missing_competencies, match_score, match_score_reasoning, recommendations. "
-    "All user-facing string values in English. recommendations must have at least one item."
+    "Усі рядки для користувача українською. recommendations — щонайменше один пункт; кожен — конкретна порада щодо резюме/кандидатури, "
+    "не маркетинг вакансії."
 )
 
 _OLLAMA_FALLBACK_HUMAN = (
-    "Fill JSON using the same classification rules as the main prompt (experience / certificates / education / projects). "
-    "Empty sections as []. match_score and match_score_reasoning must be null.\n\n"
-    "CV:\n{cv_text}\n{job_description_section}"
+    "Заповни JSON за тими самими правилами класифікації (досвід / сертифікати / освіта / проєкти). "
+    "Порожні розділи як []. match_score і match_score_reasoning мають бути null.\n\n"
+    "Резюме:\n{cv_text}\n{job_description_section}"
 )
 
 _OLLAMA_FALLBACK_RULES = (
-    "Classification: EXPERIENCE — jobs, internship, freelance; CERTIFICATES — courses without job duties; "
-    "EDUCATION — school/university; PROJECTS — side projects. Meta/Course/Program without work tasks → CERTIFICATE."
+    "Класифікація: EXPERIENCE — роботи, стаж, фриланс; CERTIFICATES — курси без робочих обов’язків; "
+    "EDUCATION — школа/університет; PROJECTS — бічні проєкти. Meta/Course/Program без робочих задач → CERTIFICATE."
 )
 
 
@@ -89,9 +96,24 @@ class CVAnalysisOutput(BaseModel):
     analysis: Optional[Dict[str, Any]] = Field(None)
     match_score: Optional[float] = Field(None, ge=0, le=1)
     match_score_reasoning: Optional[str] = Field(None)
-    recommendations: List[str] = Field(..., min_length=1)
+    recommendations: List[str] = Field(
+        ...,
+        min_length=1,
+        description="Concrete improvements to the CV or candidacy; never job-pitch or 'what you will gain' role copy.",
+    )
     matched_competencies: Optional[List[str]] = Field(None)
     missing_competencies: Optional[List[str]] = Field(None)
+
+
+class MatchScoreFallbackOutput(BaseModel):
+    """LLM-only estimate when embedding-based semantic scoring is unavailable."""
+
+    match_score: float = Field(..., ge=0, le=1, description="Оцінка відповідності 0..1")
+    match_score_reasoning: str = Field(
+        ...,
+        min_length=10,
+        description="Обґрунтування українською; згадай, що це резервна оцінка без деталізації за векторами.",
+    )
 
 
 def _parse_llm_json_blob(text: str) -> Optional[Dict[str, Any]]:
@@ -112,7 +134,7 @@ def _cv_output_from_parsed_dict(raw: Dict[str, Any]) -> Optional[CVAnalysisOutpu
     data = dict(raw)
     recs = data.get("recommendations")
     if not recs or not isinstance(recs, list) or len(recs) == 0:
-        data["recommendations"] = ["Review your CV and try the analysis again."]
+        data["recommendations"] = ["Перегляньте резюме та спробуйте аналіз ще раз."]
     try:
         return CVAnalysisOutput.model_validate(data)
     except Exception:
@@ -165,17 +187,17 @@ def _ollama_empty_extraction_hint(model_name: str) -> str:
     parts: List[str] = []
     small = any(tok in m for tok in ("3.2", ":3b", "1b", "1.5b", ":2b", "2.3b")) and "8b" not in m and "70b" not in m
     if small:
-        parts.append("Small models often fail on complex JSON schemas.")
-        parts.append("Try OLLAMA_MODEL=llama3:8b or llama3.1:8b (ollama pull …).")
+        parts.append("Малі моделі часто не справляються зі складними JSON-схемами.")
+        parts.append("Спробуйте OLLAMA_MODEL=llama3:8b або llama3.1:8b (ollama pull …).")
     elif "llama3" in m and "8b" in m:
-        parts.append("Even llama3:8b can return empty structured output (Ollama + LangChain JSON schema).")
+        parts.append("Навіть llama3:8b іноді повертає порожній структурований вивід (Ollama + LangChain JSON schema).")
         parts.append(
-            "Try: mistral / qwen2.5 / llama3.1:8b; upgrade Ollama and re-pull the model; or ENVIRONMENT=production with GEMINI_API_KEY."
+            "Спробуйте: mistral / qwen2.5 / llama3.1:8b; оновіть Ollama та перезавантажте модель; або ENVIRONMENT=production з GEMINI_API_KEY."
         )
     else:
-        parts.append("Try another model (mistral, qwen2.5, llama3.1:8b) or Gemini in production.")
+        parts.append("Спробуйте іншу модель (mistral, qwen2.5, llama3.1:8b) або Gemini у production.")
     parts.append(
-        f"If needed raise OLLAMA_NUM_CTX (currently {settings.ollama_num_ctx}). Keep MAX_CV_CHARS_FOR_LLM=0 to avoid truncating the CV."
+        f"За потреби збільште OLLAMA_NUM_CTX (зараз {settings.ollama_num_ctx}). Тримайте MAX_CV_CHARS_FOR_LLM=0, щоб не обрізати резюме."
     )
     return " ".join(parts)
 
@@ -187,17 +209,17 @@ def _empty_extraction_error(
     cv_chars_total: int,
 ) -> str:
     if cv_chars_sent < cv_chars_total:
-        cv_detail = f"CV sent to the model: {cv_chars_sent} characters (truncated from {cv_chars_total})."
+        cv_detail = f"До моделі надіслано {cv_chars_sent} символів резюме (обрізано з {cv_chars_total})."
     else:
-        cv_detail = f"CV length: {cv_chars_total} characters."
+        cv_detail = f"Довжина резюме: {cv_chars_total} символів."
     base = (
-        "Analysis failed: the model returned no structured data. "
-        "All required sections (experience, education, certificates, projects, skills) are empty. "
-        f"Backend: {backend}, model: {model_name}. {cv_detail} "
+        "Аналіз не вдався: модель не повернула структуровані дані. "
+        "Усі обов’язкові розділи (досвід, освіта, сертифікати, проєкти, навички) порожні. "
+        f"Бекенд: {backend}, модель: {model_name}. {cv_detail} "
     )
     if backend == "Ollama":
         return base + _ollama_empty_extraction_hint(model_name)
-    return base + "Try a shorter CV or verify model configuration."
+    return base + "Спробуйте коротше резюме або перевірте налаштування моделі."
 
 
 def _experience_text_from_result(result: CVAnalysisOutput) -> str:
@@ -211,27 +233,66 @@ def _experience_text_from_result(result: CVAnalysisOutput) -> str:
 
 def _semantic_reasoning_text(sem: SemanticMatchResult) -> str:
     return (
-        "Match score from cosine similarity of resume and job embeddings "
-        "(Sentence Transformers multilingual model).\n\n"
-        f"• Skills block similarity: {sem.skills_similarity:.1%}\n"
-        f"• Experience vs requirements similarity: {sem.experience_similarity:.1%}\n"
-        f"• Full-text similarity: {sem.overall_similarity:.1%}\n\n"
-        f"Weighted overall score: {sem.score:.1%}."
+        "Бал відповідності з косинусної схожості векторних подань резюме та вакансії "
+        "(багатомовна модель Sentence Transformers).\n\n"
+        f"• Схожість блоку навичок: {sem.skills_similarity:.1%}\n"
+        f"• Схожість досвіду до вимог: {sem.experience_similarity:.1%}\n"
+        f"• Схожість повного резюме до повного тексту вакансії: {sem.overall_similarity:.1%}\n\n"
+        f"Зважений загальний бал: {sem.score:.1%}."
     )
+
+
+_SEMANTIC_NARRATIVE_SYSTEM = """Ти — кар’єрний коуч, який допомагає кандидату зрозуміти, як його резюме лягає на текст вакансії.
+
+Правила:
+- Числові бали, які ти отримуєш, ОСТАТОЧНІ (вже пораховані з ембеддингів). Не змінюй їх, не перераховуй і не вигадуй інші числа.
+- Поясни простою українською, що ці бали ймовірно означають саме для ЦІЄЇ людини, спираючись на наведені уривки.
+- Будь стислим, підтримливим і конкретним до уривків (список навичок, фрагмент резюме, фрагмент вакансії). Якщо список навичок порожній або крихітний, скажи, що це може занизити бал навичок, не означаючи відсутності навичок узагалі.
+- Звертайся на «ви». Лише українська мова. Без markdown-заголовків; короткі абзаци або марковані рядки — гаразд.
+- Не більше 280 слів."""
+
+_FALLBACK_MATCH_SCORE_SYSTEM = """Ти оцінюєш відповідність резюме вакансії, коли основний серверний конвейєр векторних подань (ембеддинги) тимчасово недоступний або дав збій.
+
+Поверни:
+- match_score — дійсне число від 0 до 1 (чим ближче до 1, тим краща відповідність за твоїм судженням).
+- match_score_reasoning — 2–6 речень українською; обов’язково згадай, що це РЕЗЕРВНА оцінка без розбиття на підпоказники, бо вбудований семантичний підрахунок не спрацював.
+
+Оцінюй лише за тим, що видно в наданих уривках резюме та вакансії; не вигадуй фактів, яких немає в тексті. Будь обережним і чесним щодо невизначеності."""
+
+
+def _llm_message_text(msg: Any) -> str:
+    raw = getattr(msg, "content", msg)
+    if isinstance(raw, str):
+        return raw
+    if isinstance(raw, list):
+        pieces: List[str] = []
+        for block in raw:
+            if isinstance(block, str):
+                pieces.append(block)
+            elif isinstance(block, dict):
+                pieces.append(str(block.get("text", block)))
+            else:
+                pieces.append(str(block))
+        return "".join(pieces)
+    return str(raw or "")
 
 
 def _build_success_response(
     cv_text: str,
     result: CVAnalysisOutput,
     job_description: Optional[str],
-) -> CVAnalysisResponse:
-    recs = result.recommendations or ["Review your CV and try again."]
+) -> Tuple[CVAnalysisResponse, bool]:
+    recs = result.recommendations or ["Перегляньте резюме та спробуйте ще раз."]
     matched = list(result.matched_competencies or [])
     missing = list(result.missing_competencies or [])
 
     match_score: Optional[float] = None
     match_reason: Optional[str] = None
     semantic_breakdown: Optional[Dict[str, float]] = None
+    semantic_weights: Optional[Dict[str, float]] = None
+    semantic_metric_guides: Optional[Dict[str, str]] = None
+    semantic_pipeline_failed = False
+    match_explainability = None
 
     job_stripped = (job_description or "").strip()
     if job_stripped and settings.use_semantic_matching:
@@ -250,7 +311,22 @@ def _build_success_response(
                 "experience_similarity": sem.experience_similarity,
                 "overall_similarity": sem.overall_similarity,
             }
+            ws, we, wo = normalized_semantic_weights()
+            semantic_weights = {"skills": ws, "experience": we, "overall": wo}
+            semantic_metric_guides = dict(SEMANTIC_METRIC_GUIDES)
             match_reason = _semantic_reasoning_text(sem)
+            try:
+                match_explainability = explain_match_score(
+                    sem=sem,
+                    skills=result.skills or [],
+                    experience=result.experience,
+                    cv_experience_text=cv_exp or cv_text[:8000],
+                    cv_full_text=cv_text,
+                    job_requirements_text=job_stripped,
+                    job_full_text=job_stripped,
+                )
+            except Exception:
+                logger.warning("Match explainability failed; continuing without SHAP/LIME", exc_info=True)
             logger.info(
                 "Semantic match score=%.3f (skills=%.3f exp=%.3f overall=%.3f)",
                 sem.score,
@@ -259,11 +335,12 @@ def _build_success_response(
                 sem.overall_similarity,
             )
         except Exception:
-            logger.exception("Semantic matching failed; match_score left unset")
+            logger.exception("Semantic matching failed; will try LLM fallback for match_score")
+            semantic_pipeline_failed = True
             match_score = result.match_score
             match_reason = result.match_score_reasoning
 
-    return CVAnalysisResponse(
+    resp = CVAnalysisResponse(
         success=True,
         extracted_text=cv_text,
         analysis=result.analysis,
@@ -278,20 +355,28 @@ def _build_success_response(
         matched_competencies=matched if job_stripped else [],
         missing_competencies=missing if job_stripped else [],
         semantic_breakdown=semantic_breakdown,
+        semantic_weights=semantic_weights,
+        semantic_metric_guides=semantic_metric_guides,
+        semantic_score_narrative=None,
+        match_explainability=match_explainability,
         error=None,
     )
+    return resp, semantic_pipeline_failed
 
 
 def _job_section(job_description: Optional[str]) -> str:
     if job_description and job_description.strip():
         return (
-            f"\n\nJob description (requirements):\n{job_description.strip()}\n\n"
-            "Compare the CV to the requirements. Fill matched_competencies and missing_competencies in English. "
-            "Leave match_score and match_score_reasoning null. Tailor recommendations to this role, in English."
+            f"\n\nОпис вакансії (вимоги):\n{job_description.strip()}\n\n"
+            "Порівняй резюме з вимогами. Заповни matched_competencies та missing_competencies українською. "
+            "Залиш match_score і match_score_reasoning null. "
+            "Рекомендації українською — що покращити в резюме чи профілі під цю роль "
+            "(лише конкретні кроки; без реклами вакансії та «переваг ролі»)."
         )
     return (
-        "\n\nNo job description provided. matched_competencies and missing_competencies must be []. "
-        "match_score and match_score_reasoning must be null. Give general market-oriented recommendations in English."
+        "\n\nОпис вакансії не надано. matched_competencies і missing_competencies мають бути []. "
+        "match_score і match_score_reasoning — null. "
+        "Дай загальні ринкові рекомендації українською щодо покращення резюме: лише дії для кандидата, без реклами вакансій."
     )
 
 
@@ -299,6 +384,90 @@ class CVAnalyzer:
     def __init__(self) -> None:
         self._ollama_llm = None
         self._gemini_llm = None
+
+    async def _enrich_semantic_score_narrative(
+        self,
+        resp: CVAnalysisResponse,
+        raw_llm: Any,
+        job_description: Optional[str],
+        cv_text_for_prompt: str,
+    ) -> CVAnalysisResponse:
+        if not settings.use_llm_semantic_narrative:
+            return resp
+        if not resp.semantic_breakdown or resp.match_score is None:
+            return resp
+        jd = (job_description or "").strip()
+        if not jd:
+            return resp
+        sb = resp.semantic_breakdown
+        sw = resp.semantic_weights or {}
+        ws, we, wo = float(sw.get("skills", 0.5)), float(sw.get("experience", 0.3)), float(sw.get("overall", 0.2))
+        skills_line = ", ".join(s for s in (resp.skills or [])[:120] if s and str(s).strip()) or "(не витягнуто)"
+        cv_snip = (cv_text_for_prompt or "").strip()[:2800]
+        job_snip = jd[:2800]
+        human = (
+            "Нижче подібності кожна в діапазоні від 0 до 1 (більше — ближче за змістом у просторі ембеддингів).\n\n"
+            f"Загальний match_score (зважена суміш): {float(resp.match_score):.4f}\n"
+            f"Ваги: навички {ws:.4f}, досвід {we:.4f}, усе резюме vs вакансія {wo:.4f}\n\n"
+            f"skills_similarity (навички vs вакансія): {float(sb.get('skills_similarity', 0)):.4f}\n"
+            f"experience_similarity (досвід vs вакансія): {float(sb.get('experience_similarity', 0)):.4f}\n"
+            f"overall_similarity (повне резюме vs повний текст вакансії): {float(sb.get('overall_similarity', 0)):.4f}\n\n"
+            f"Витягнуті навички (через кому): {skills_line}\n\n"
+            f"Уривок вакансії:\n{job_snip}\n\n"
+            f"Уривок резюме:\n{cv_snip}\n\n"
+            "Напиши пояснення для кандидата згідно з інструкціями."
+        )
+        try:
+            out = await raw_llm.ainvoke(
+                [SystemMessage(content=_SEMANTIC_NARRATIVE_SYSTEM), HumanMessage(content=human)]
+            )
+            text = _llm_message_text(out).strip()
+            if not text:
+                return resp
+            if len(text) > 6000:
+                text = text[:6000].rsplit(" ", 1)[0] + "…"
+            return resp.model_copy(update={"semantic_score_narrative": text})
+        except Exception:
+            logger.warning("LLM semantic score narrative failed; response left without narrative", exc_info=True)
+            return resp
+
+    async def _llm_fallback_match_score(
+        self,
+        resp: CVAnalysisResponse,
+        raw_llm: Any,
+        cv_text_for_prompt: str,
+        job_description: Optional[str],
+    ) -> CVAnalysisResponse:
+        jd = (job_description or "").strip()
+        if not jd or resp.match_score is not None:
+            return resp
+        cv_snip = (cv_text_for_prompt or "").strip()[:6000]
+        job_snip = jd[:6000]
+        human = (
+            "Оціни відповідність за цими уривками.\n\n"
+            f"Резюме:\n{cv_snip}\n\n"
+            f"Вакансія:\n{job_snip}"
+        )
+        structured = raw_llm.with_structured_output(MatchScoreFallbackOutput)
+        try:
+            out = await structured.ainvoke(
+                [
+                    SystemMessage(content=_FALLBACK_MATCH_SCORE_SYSTEM),
+                    HumanMessage(content=human),
+                ]
+            )
+            reason = (out.match_score_reasoning or "").strip()
+            if not reason:
+                return resp
+            return resp.model_copy(
+                update={
+                    "match_score": float(out.match_score),
+                    "match_score_reasoning": reason,
+                }
+            )
+        except Exception:
+            logger.warning("LLM fallback match score failed; leaving match_score unset", exc_info=True)
+            return resp
 
     async def analyze_cv(
         self,
@@ -361,6 +530,7 @@ class CVAnalyzer:
         cv_text_for_prompt: str,
         job_description: Optional[str],
         structured_llm: Any,
+        raw_llm: Any,
         backend: str,
         model_name: str,
         *,
@@ -394,7 +564,14 @@ class CVAnalyzer:
                         fb, _fb_inc = _normalize_llm_result(fb)
                         if not _is_extraction_empty(fb):
                             logger.info("Ollama: recovered via raw JSON fallback after empty structured output")
-                            return _build_success_response(cv_text, fb, job_description)
+                            built, sem_failed = _build_success_response(cv_text, fb, job_description)
+                            if sem_failed:
+                                built = await self._llm_fallback_match_score(
+                                    built, raw_llm, cv_text_for_prompt, job_description
+                                )
+                            return await self._enrich_semantic_score_narrative(
+                                built, raw_llm, job_description, cv_text_for_prompt
+                            )
                 return CVAnalysisResponse(
                     success=False,
                     extracted_text=cv_text,
@@ -405,9 +582,16 @@ class CVAnalyzer:
                         len(cv_text),
                     ),
                 )
-            return _build_success_response(cv_text, result, job_description)
+            built, sem_failed = _build_success_response(cv_text, result, job_description)
+            if sem_failed:
+                built = await self._llm_fallback_match_score(
+                    built, raw_llm, cv_text_for_prompt, job_description
+                )
+            return await self._enrich_semantic_score_narrative(
+                built, raw_llm, job_description, cv_text_for_prompt
+            )
         except Exception as e:
-            error_msg = f"Analysis error: {e!s}\n{traceback.format_exc()}"
+            error_msg = f"Помилка аналізу: {e!s}\n{traceback.format_exc()}"
             return CVAnalysisResponse(success=False, extracted_text=cv_text, error=error_msg)
 
     def _cv_text_for_prompt(self, cv_text: str) -> str:
@@ -416,7 +600,7 @@ class CVAnalyzer:
             logger.warning("CV truncated from %d to %d chars for LLM context", len(cv_text), max_chars)
             return (
                 cv_text[:max_chars]
-                + "\n\n[CV text truncated for model context. Extract from the text above.]"
+                + "\n\n[Текст резюме обрізано для контексту моделі. Витягни дані з наведеного вище.]"
             )
         return cv_text
 
@@ -450,6 +634,7 @@ class CVAnalyzer:
             cv_text_for_prompt,
             job_description,
             structured_llm,
+            self._ollama_llm,
             "Ollama",
             settings.ollama_model,
             ollama_json_fallback=True,
@@ -480,6 +665,7 @@ class CVAnalyzer:
             cv_text_for_prompt,
             job_description,
             structured_llm,
+            self._gemini_llm,
             "Gemini",
             "gemini-2.5-flash",
         )
