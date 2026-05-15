@@ -44,6 +44,43 @@ class ProjectItem(BaseModel):
     link: Optional[str] = Field(None, description="URL (e.g. GitHub)")
 
 
+class ExplainabilityAttribution(BaseModel):
+    feature: str = Field(..., description="Human-readable feature label (skill or experience line).")
+    contribution: float = Field(
+        ...,
+        description="Estimated contribution to match_score (positive raises, negative lowers).",
+    )
+
+
+class ExplainabilityMethodResult(BaseModel):
+    method: Literal["shap", "lime"]
+    baseline_score: float = Field(..., ge=0, le=1, description="Score with all features masked out.")
+    predicted_score: float = Field(..., ge=0, le=1, description="Score with the full CV features active.")
+    top_positive: List[ExplainabilityAttribution] = Field(
+        default_factory=list,
+        description="Features that most increase match_score locally.",
+    )
+    top_negative: List[ExplainabilityAttribution] = Field(
+        default_factory=list,
+        description="Features that most decrease match_score when removed or perturbed.",
+    )
+
+
+class MatchExplainability(BaseModel):
+    component_attributions: Optional[Dict[str, float]] = Field(
+        None,
+        description="Exact linear decomposition of match_score into skills, experience, and overall blocks.",
+    )
+    shap: Optional[ExplainabilityMethodResult] = Field(
+        None,
+        description="Kernel SHAP local attributions over CV skill/experience features.",
+    )
+    lime: Optional[ExplainabilityMethodResult] = Field(
+        None,
+        description="LIME local linear approximation over the same binary features.",
+    )
+
+
 class JobRequirementsExtraction(BaseModel):
     """Extracted skills and requirements summary from a job description."""
     skills: List[str] = Field(default_factory=list, description="Required skills/technologies from the job description")
@@ -71,7 +108,7 @@ class CVAnalysisResponse(BaseModel):
     )
     recommendations: Optional[List[str]] = Field(
         None,
-        description="Never empty on success: general market advice when no position given; position-specific when job description provided.",
+        description="Never empty on success: actionable CV/candidacy improvements. Not job marketing or role-benefit copy.",
     )
     matched_competencies: Optional[List[str]] = Field(
         None,
@@ -85,5 +122,21 @@ class CVAnalysisResponse(BaseModel):
     semantic_breakdown: Optional[Dict[str, float]] = Field(
         None,
         description="Per-component similarities: skills_similarity, experience_similarity, overall_similarity. Present when semantic matching is used.",
+    )
+    semantic_weights: Optional[Dict[str, float]] = Field(
+        None,
+        description="Normalized weights used to combine the three similarities into match_score: keys skills, experience, overall (maps to overall_similarity / full-CV-vs-job).",
+    )
+    semantic_metric_guides: Optional[Dict[str, str]] = Field(
+        None,
+        description="Short user-facing explanations for each similarity and for match_score. Present when semantic_breakdown is present.",
+    )
+    semantic_score_narrative: Optional[str] = Field(
+        None,
+        description="LLM-written interpretation of the semantic scores in context (when use_llm_semantic_narrative is enabled).",
+    )
+    match_explainability: Optional[MatchExplainability] = Field(
+        None,
+        description="SHAP/LIME attributions for match_score when semantic matching is used.",
     )
     error: Optional[str] = None
