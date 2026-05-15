@@ -9,6 +9,7 @@ import {
   type HistoryEntry,
 } from "../../../lib/history-storage";
 import { formatPercent } from "../../../lib/analysis-format";
+import { uk } from "../../../lib/strings-uk";
 import { PageHeader } from "../../../components/page-header/PageHeader";
 import { PageLayout } from "../../../components/page-layout/PageLayout";
 import surface from "../../../components/ui/surface.module.css";
@@ -16,7 +17,7 @@ import historyStyles from "./history.module.css";
 
 function formatDate(iso: string): string {
   try {
-    return new Intl.DateTimeFormat(undefined, {
+    return new Intl.DateTimeFormat("uk-UA", {
       dateStyle: "medium",
       timeStyle: "short",
     }).format(new Date(iso));
@@ -27,6 +28,7 @@ function formatDate(iso: string): string {
 
 export default function HistoryPage() {
   const [entries, setEntries] = useState<HistoryEntry[]>([]);
+  const h = uk.history;
 
   const refresh = useCallback(() => {
     setEntries(loadHistory());
@@ -52,11 +54,11 @@ export default function HistoryPage() {
   return (
     <PageLayout>
       <PageHeader
-        title="Analysis history"
+        title={h.title}
         subtitle={
           <>
-            Successful runs are saved in this browser. Clearing site data removes them.{" "}
-            <Link href="/">Back to analyzer</Link>
+            {h.subtitleBeforeLink}
+            <Link href="/">{h.backToAnalyzer}</Link>
           </>
         }
       />
@@ -64,20 +66,16 @@ export default function HistoryPage() {
       {entries.length === 0 ? (
         <section className={surface.card} aria-labelledby="empty-history">
           <h2 id="empty-history" className={surface.cardTitle}>
-            No saved analyses yet
+            {h.emptyTitle}
           </h2>
-          <p className={surface.reasoning}>
-            Run an analysis on the home page. When it succeeds, it is added here automatically.
-          </p>
+          <p className={surface.reasoning}>{h.emptyBody}</p>
         </section>
       ) : (
         <>
           <div className={historyStyles.toolbar}>
-            <p className={historyStyles.count}>
-              {entries.length} {entries.length === 1 ? "entry" : "entries"}
-            </p>
+            <p className={historyStyles.count}>{h.count(entries.length)}</p>
             <button type="button" className={historyStyles.dangerBtn} onClick={onClear}>
-              Clear all
+              {h.clearAll}
             </button>
           </div>
           <ul className={historyStyles.list}>
@@ -91,19 +89,21 @@ export default function HistoryPage() {
                 </div>
                 <div className={historyStyles.meta}>
                   {e.result.match_score != null ? (
-                    <span>Match: {formatPercent(e.result.match_score)}</span>
+                    <span>
+                      {h.match}: {formatPercent(e.result.match_score)}
+                    </span>
                   ) : (
-                    <span>Match: —</span>
+                    <span>{h.matchDash}</span>
                   )}
                   {(e.result.recommendations?.length ?? 0) > 0 ? (
-                    <span>{e.result.recommendations!.length} recommendations</span>
+                    <span>{h.tips(e.result.recommendations!.length)}</span>
                   ) : null}
                 </div>
                 {e.result.analysis && typeof e.result.analysis.summary === "string" ? (
                   <p className={historyStyles.summary}>{e.result.analysis.summary}</p>
                 ) : null}
                 <button type="button" className={historyStyles.removeBtn} onClick={() => onRemove(e.id)}>
-                  Remove
+                  {h.remove}
                 </button>
               </li>
             ))}

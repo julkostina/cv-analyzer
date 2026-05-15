@@ -4,22 +4,22 @@ import { SiteShell } from "../components/SiteShell";
 import "./globals.css";
 
 const roboto = Roboto({
-  subsets: ["latin"],
+  subsets: ["latin", "cyrillic"],
   weight: ["400", "500", "700"],
   variable: "--font-body",
   display: "swap",
 });
 
 const notoSerifDisplay = Noto_Serif_Display({
-  subsets: ["latin"],
+  subsets: ["latin", "cyrillic"],
   weight: ["400", "600", "700", "900"],
   variable: "--font-title",
   display: "swap",
 });
 
 export const metadata: Metadata = {
-  title: "CV Analyzer",
-  description: "Resume–job match scoring and recommendations",
+  title: "Аналізатор резюме",
+  description: "Оцінка відповідності резюме вакансії та рекомендації",
 };
 
 export default function RootLayout({
@@ -28,7 +28,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={`${roboto.variable} ${notoSerifDisplay.variable}`}>
+    <html lang="uk" className={`${roboto.variable} ${notoSerifDisplay.variable}`}>
       <body>
         <SiteShell>{children}</SiteShell>
       </body>

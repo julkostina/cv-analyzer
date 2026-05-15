@@ -1,7 +1,5 @@
+import { uk } from "../../lib/strings-uk";
 import styles from "./HomeAnalyzer.module.css";
-
-const DOWNLOAD_PDF_TOOLTIP =
-  "The PDF reflects the same inputs as your analysis. If the resume or job details cannot be processed, you will see an error message instead of a download.";
 
 export type AnalyzerFormProps = {
   file: File | null;
@@ -28,16 +26,17 @@ export function AnalyzerForm({
   onSubmit,
   onDownloadPdf,
 }: AnalyzerFormProps) {
+  const a = uk.analyzerForm;
   return (
     <form className={styles.steps} onSubmit={onSubmit}>
       <section className={styles.card} aria-labelledby="resume-heading">
         <h2 id="resume-heading" className={styles.cardTitle}>
-          Resume
+          {a.resumeSection}
         </h2>
         <div className={styles.resumeRow}>
           <div className={`${styles.field} ${styles.resumeFileField}`}>
             <label className={styles.label} htmlFor="cv-file">
-              PDF or DOCX file
+              {a.fileLabel}
             </label>
             <input
               id="cv-file"
@@ -52,7 +51,7 @@ export function AnalyzerForm({
           </div>
           <div className={`${styles.field} ${styles.resumeUrlField}`}>
             <label className={styles.label} htmlFor="job-url">
-              Link to the job page
+              {a.jobUrlLabel}
             </label>
             <input
               id="job-url"
@@ -61,7 +60,7 @@ export function AnalyzerForm({
               inputMode="url"
               value={jobUrl}
               onChange={(ev) => onJobUrlChange(ev.target.value)}
-              placeholder="https://…"
+              placeholder={a.jobUrlPlaceholder}
               autoComplete="off"
             />
           </div>
@@ -70,41 +69,41 @@ export function AnalyzerForm({
 
       <section className={styles.card} aria-labelledby="job-heading">
         <h2 id="job-heading" className={styles.cardTitle}>
-          Job (optional)
+          {a.jobSection}
         </h2>
         <div className={styles.field}>
           <label className={styles.label} htmlFor="job-text">
-            Job requirements / description
+            {a.jobTextLabel}
           </label>
           <textarea
             id="job-text"
             className={styles.textarea}
             value={jobDescription}
             onChange={(ev) => onJobDescriptionChange(ev.target.value)}
-            placeholder="Paste the posting text or key requirements…"
+            placeholder={a.jobTextPlaceholder}
             rows={6}
           />
         </div>
       </section>
 
-      <section className={styles.card} aria-label="Run analysis or download PDF">
+      <section className={styles.card} aria-label={`${a.analyze} / ${a.downloadPdf}`}>
         <div className={styles.actions}>
           <button type="submit" className={`${styles.btnBase} ${styles.btnPrimary}`} disabled={loading}>
-            {loading ? "Analyzing…" : "Run analysis"}
+            {loading ? a.analyzing : a.analyze}
           </button>
           <button
             type="button"
             className={`${styles.btnBase} ${styles.btnSecondary}`}
             disabled={pdfLoading || !file}
             onClick={onDownloadPdf}
-            title={DOWNLOAD_PDF_TOOLTIP}
+            title={a.downloadPdfHelp}
             aria-describedby="download-pdf-help"
           >
-            {pdfLoading ? "PDF…" : "Download PDF"}
+            {pdfLoading ? a.pdfLoading : a.downloadPdf}
           </button>
         </div>
         <span id="download-pdf-help" className={styles.visuallyHidden}>
-          {DOWNLOAD_PDF_TOOLTIP}
+          {a.downloadPdfHelp}
         </span>
       </section>
     </form>

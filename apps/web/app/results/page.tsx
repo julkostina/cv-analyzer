@@ -6,10 +6,12 @@ import { AnalysisResults } from "../../components/home/AnalysisResults";
 import { PageHeader } from "../../components/page-header/PageHeader";
 import styles from "../../components/home/HomeAnalyzer.module.css";
 import { loadLatestResultSession, type LatestResultPayload } from "../../lib/latest-result-session";
+import { uk } from "../../lib/strings-uk";
 import layoutStyles from "./results.module.css";
 
 export default function ResultsPage() {
   const [payload, setPayload] = useState<LatestResultPayload | null | undefined>(undefined);
+  const r = uk.results;
 
   useEffect(() => {
     setPayload(loadLatestResultSession());
@@ -19,7 +21,7 @@ export default function ResultsPage() {
     return (
       <div className={layoutStyles.page}>
         <main className={layoutStyles.content}>
-          <PageHeader title="Job match results" subtitle="Loading…" />
+          <PageHeader title={r.title} subtitle={r.loading} />
         </main>
       </div>
     );
@@ -30,10 +32,11 @@ export default function ResultsPage() {
       <div className={layoutStyles.page}>
         <main className={layoutStyles.content}>
           <PageHeader
-            title="Job match results"
+            title={r.title}
             subtitle={
               <>
-                No analysis in this session yet. <Link href="/">Run an analysis on the home page</Link>.
+                {r.emptyBeforeLink}
+                <Link href="/">{r.runOnHome}</Link>.
               </>
             }
           />
@@ -42,7 +45,7 @@ export default function ResultsPage() {
     );
   }
 
-  const { result, fileName } = payload;
+  const { result } = payload;
 
   return (
     <div className={layoutStyles.page}>

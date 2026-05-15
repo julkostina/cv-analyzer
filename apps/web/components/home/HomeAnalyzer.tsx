@@ -5,6 +5,7 @@ import { useCallback, useState } from "react";
 import { analyzeCv, downloadAnalysisPdf } from "../../lib/analyze-client";
 import { addHistoryEntry } from "../../lib/history-storage";
 import { saveLatestResultSession } from "../../lib/latest-result-session";
+import { uk } from "../../lib/strings-uk";
 import type { CVAnalysisResponse } from "../../lib/types";
 import { triggerBlobDownload } from "../../lib/analysis-format";
 import { AnalysisResults } from "./AnalysisResults";
@@ -20,6 +21,7 @@ export function HomeAnalyzer() {
   const [pdfLoading, setPdfLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [inlineResult, setInlineResult] = useState<CVAnalysisResponse | null>(null);
+  const t = uk.homeAnalyzer;
 
   const onSubmit = useCallback(
     async (e: React.FormEvent) => {
@@ -27,7 +29,7 @@ export function HomeAnalyzer() {
       setError(null);
       setInlineResult(null);
       if (!file) {
-        setError("Choose a resume file (PDF or DOCX).");
+        setError(t.errors.noFile);
         return;
       }
       setLoading(true);
@@ -42,24 +44,22 @@ export function HomeAnalyzer() {
         }
         if (!saved) {
           setInlineResult(data);
-          setError(
-            "Could not open the results page: this browser blocked or ran out of session storage. Your analysis is shown below — allow storage for this site and run again to use the results page.",
-          );
+          setError(t.errors.sessionBlocked);
           return;
         }
         router.push("/results");
       } catch (err) {
-        setError(err instanceof Error ? err.message : "Unknown error.");
+        setError(err instanceof Error ? err.message : t.errors.unknown);
       } finally {
         setLoading(false);
       }
     },
-    [file, jobDescription, jobUrl, router],
+    [file, jobDescription, jobUrl, router, t.errors],
   );
 
   const onDownloadPdf = useCallback(async () => {
     if (!file) {
-      setError("Choose a resume file first.");
+      setError(t.errors.noFilePdf);
       return;
     }
     setPdfLoading(true);
@@ -69,23 +69,21 @@ export function HomeAnalyzer() {
         jobDescription: jobDescription || undefined,
         jobUrl: jobUrl || undefined,
       });
-      triggerBlobDownload(blob, "cv-analysis-report.pdf");
+      triggerBlobDownload(blob, "zvit-analiz-rezyume.pdf");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not download PDF.");
+      setError(err instanceof Error ? err.message : t.errors.pdfDownload);
     } finally {
       setPdfLoading(false);
     }
-  }, [file, jobDescription, jobUrl]);
+  }, [file, jobDescription, jobUrl, t.errors]);
 
   return (
     <section className={styles.service} aria-labelledby="service-heading">
       <div className="container">
         <h2 id="service-heading" className={styles.serviceHeading}>
-          Analyze your resume
+          {t.heading}
         </h2>
-        <p className={styles.serviceSub}>
-          Supported formats: <strong>PDF</strong> and <strong>DOCX</strong>.
-        </p>
+        <p className={styles.serviceSub}>{t.sub}</p>
 
         <AnalyzerForm
           file={file}

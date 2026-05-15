@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import Link from "next/link";
+import { uk } from "../lib/strings-uk";
 import styles from "./SiteShell.module.css";
 
 export function SiteShell({ children }: { children: ReactNode }) {
@@ -7,20 +8,20 @@ export function SiteShell({ children }: { children: ReactNode }) {
     <div className={styles.root}>
       <header className={styles.header}>
         <Link href="/" className={styles.brand}>
-          CV Analyzer
+          {uk.shell.brand}
         </Link>
-        <nav className={styles.nav} aria-label="Main">
+        <nav className={styles.nav} aria-label={uk.shell.navMain}>
           <Link href="/" className={styles.navLink}>
-            Home
+            {uk.shell.home}
           </Link>
           <Link href="/history" className={styles.navLink}>
-            History
+            {uk.shell.history}
           </Link>
         </nav>
       </header>
       <div className={styles.content}>{children}</div>
       <footer className={styles.footer}>
-        <p>No sign-up. History of successful analyses is kept in this browser only and is not sent anywhere else.</p>
+        <p>{uk.shell.footer}</p>
       </footer>
     </div>
   );

@@ -1,4 +1,5 @@
 import { getApiBaseUrl } from "./config";
+import { uk } from "./strings-uk";
 import type { CVAnalysisResponse } from "./types";
 
 export type AnalyzeOptions = {
@@ -32,8 +33,8 @@ export async function analyzeCv(
     const text = await res.text();
     throw new Error(
       res.ok
-        ? "Unexpected server response (expected JSON)."
-        : `Error ${res.status}: ${text.slice(0, 200)}`,
+        ? uk.analyzeClient.unexpectedJson
+        : uk.analyzeClient.errorStatus(res.status, text.slice(0, 200)),
     );
   }
 
@@ -54,7 +55,7 @@ export async function analyzeCv(
     } else {
       msg = JSON.stringify(detail ?? data);
     }
-    throw new Error(msg || `Request failed (${res.status})`);
+    throw new Error(msg || uk.analyzeClient.requestFailed(res.status));
   }
 
   return data as CVAnalysisResponse;
@@ -73,9 +74,9 @@ export async function downloadAnalysisPdf(
     const ct = res.headers.get("content-type") ?? "";
     if (ct.includes("application/json")) {
       const err = (await res.json()) as { detail?: string };
-      throw new Error(err.detail ?? `Error ${res.status}`);
+      throw new Error(err.detail ?? uk.analyzeClient.requestFailed(res.status));
     }
-    throw new Error(`Could not download PDF (${res.status})`);
+    throw new Error(uk.analyzeClient.pdfFailed(res.status));
   }
 
   return res.blob();
