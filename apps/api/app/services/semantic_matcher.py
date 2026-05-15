@@ -2,11 +2,44 @@
 
 import logging
 from dataclasses import dataclass
-from typing import List
+from typing import Dict, List, Tuple
 
 from app.config import settings
 
 logger = logging.getLogger(__name__)
+
+# Shown in API/UI when semantic matching is used (same keys as semantic_weights response).
+SEMANTIC_METRIC_GUIDES: Dict[str, str] = {
+    "skills": (
+        "Низький бал навичок часто означає, що список навичок порожній або дуже короткий, "
+        "або що він слабо нагадує текст вакансії в просторі векторних подань. "
+        "Це не означає, що у вас немає навичок."
+    ),
+    "experience": (
+        "Порівнюється текстовий блок із ваших посад (назва, роботодавець, дати) "
+        "або запасний фрагмент резюме з усім текстом вакансії. "
+        "Це не арифметика років досвіду й не структурний чекліст."
+    ),
+    "overall": (
+        "Це схожість повного тексту резюме та повного опису вакансії (косинус у просторі векторів). "
+        "Це не лише загальний бал відповідності."
+    ),
+    "match_score": (
+        "Загальний бал — зважена комбінація трьох показників вище з вагами з цієї відповіді "
+        "(типово: навички 0,5, досвід 0,3, усе резюме vs вакансія 0,2). "
+        "Адміністратор може змінити ваги в конфігурації сервера."
+    ),
+}
+
+
+def normalized_semantic_weights() -> Tuple[float, float, float]:
+    w_skills = float(settings.semantic_weights_skills)
+    w_exp = float(settings.semantic_weights_experience)
+    w_overall = float(settings.semantic_weights_overall)
+    total = w_skills + w_exp + w_overall
+    if total <= 0:
+        return (1.0 / 3.0, 1.0 / 3.0, 1.0 / 3.0)
+    return (w_skills / total, w_exp / total, w_overall / total)
 
 
 @dataclass
@@ -113,14 +146,7 @@ def compute_semantic_match(
     job_requirements_text: str,
     job_full_text: str,
 ) -> SemanticMatchResult:
-    w_skills = getattr(settings, "semantic_weights_skills", 0.5)
-    w_exp = getattr(settings, "semantic_weights_experience", 0.3)
-    w_overall = getattr(settings, "semantic_weights_overall", 0.2)
-
-    total = w_skills + w_exp + w_overall
-    if total <= 0:
-        total = 1.0
-    w_skills, w_exp, w_overall = w_skills / total, w_exp / total, w_overall / total
+    w_skills, w_exp, w_overall = normalized_semantic_weights()
 
     def _block(text: str, max_chars: int = 8000) -> str:
         if not text or not text.strip():

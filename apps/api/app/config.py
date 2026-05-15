@@ -25,6 +25,19 @@ class Settings(BaseSettings):
     max_upload_size_mb: int = 10
 
     use_semantic_matching: bool = True
+    # Kernel SHAP + LIME over skill/experience features for match_score (see match_explainer.py).
+    use_match_explainers: bool = True
+    explainer_max_skills: int = 10
+    explainer_max_experience: int = 6
+    explainer_top_features: int = 6
+    explainer_shap_samples: int = 32
+    explainer_lime_samples: int = 32
+    # Second LLM call after embedding scores: plain-language interpretation for the user.
+    use_llm_semantic_narrative: bool = True
+    # Weights for embedding cosine components (normalized to sum 1.0 before scoring). See semantic_matcher.py.
+    semantic_weights_skills: float = 0.5
+    semantic_weights_experience: float = 0.3
+    semantic_weights_overall: float = 0.2
     embedding_provider: str = "sentence_transformers"
     pdf_font_path: str = ""
 
