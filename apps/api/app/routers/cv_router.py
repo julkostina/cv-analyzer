@@ -66,7 +66,7 @@ async def analyze_cv(
                 logger.warning("Failed to fetch job_description_url %s: %s", job_description_url, e)
                 raise HTTPException(
                     status_code=400,
-                    detail=f"Could not fetch job description from URL: {e!s}",
+                    detail=f"Не вдалося завантажити опис вакансії за посиланням: {e!s}",
                 ) from e
 
         job_text = normalize_text_for_pipeline(job_text) if job_text else ""
@@ -83,11 +83,25 @@ async def analyze_cv(
             await f.write(content)
 
         parser = CVParser()
-        cv_text = await parser.parse_file(str(file_path), file_type)
+        try:
+            cv_text = await parser.parse_file(str(file_path), file_type)
+        except Exception as e:
+            logger.warning("CV parse failed: %s", e, exc_info=True)
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    "Не вдалося витягти текст із цього файлу. "
+                    "Переконайтеся, що PDF не захищений паролем і не пошкоджений; для DOCX спробуйте «Зберегти як» нову копію. "
+                    "Якщо проблема лишається, експортуйте резюме в інший формат (наприклад, PDF із видимим текстом)."
+                ),
+            ) from e
         cv_text = normalize_text_for_pipeline(cv_text or "")
 
         if not cv_text:
-            raise HTTPException(status_code=400, detail="Failed to parse CV")
+            raise HTTPException(
+                status_code=400,
+                detail="Не вдалося розібрати резюме: текст порожній або недоступний.",
+            )
 
         analyzer = CVAnalyzer()
         request = (

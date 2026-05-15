@@ -17,7 +17,7 @@ async def test_analyze_rejects_invalid_file_type(client):
         files={"file": ("fake.pdf", b"not a pdf at all", "application/pdf")},
     )
     assert response.status_code == 400
-    assert "Invalid or unsupported file" in response.json()["detail"]
+    assert "Непідтримуваний" in response.json()["detail"] or "PDF" in response.json()["detail"]
 
 
 @pytest.mark.asyncio
@@ -95,3 +95,20 @@ async def test_analyze_return_pdf_when_requested(client):
     assert response.headers.get("content-type", "").startswith("application/pdf")
     mock_pdf.assert_called_once()
     assert response.content.startswith(b"%PDF")
+
+
+@pytest.mark.asyncio
+async def test_analyze_parse_failure_returns_400(client):
+    """Parser raises → 400 with readable Ukrainian message (FR-07)."""
+    with patch("app.routers.cv_router.CVParser") as MockParser:
+        mock_parser_instance = MockParser.return_value
+        mock_parser_instance.parse_file = AsyncMock(side_effect=RuntimeError("pdfplumber boom"))
+
+        response = await client.post(
+            "/api/v1/analyze",
+            files={"file": ("cv.pdf", MINIMAL_PDF, "application/pdf")},
+        )
+
+    assert response.status_code == 400
+    detail = response.json()["detail"]
+    assert "Не вдалося витягти текст" in detail

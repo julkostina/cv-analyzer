@@ -54,26 +54,26 @@ def validate_file(
     """
     if len(content) > max_size_bytes:
         raise ValueError(
-            f"File too large. Maximum size: {max_size_bytes // (1024 * 1024)} MB"
+            f"Файл завеликий. Максимум: {max_size_bytes // (1024 * 1024)} МБ"
         )
 
     detected = detect_type_from_magic_bytes(content)
     if detected is None:
         raise ValueError(
-            "Invalid or unsupported file: content does not match PDF or DOCX."
+            "Непідтримуваний або пошкоджений файл: вміст не відповідає формату PDF чи DOCX."
         )
 
     ext = get_extension_from_filename(filename)
     if ext is not None and ext != detected:
         raise ValueError(
-            f"File extension (.{ext}) does not match file content (detected: {detected})."
+            f"Розширення файлу (.{ext}) не збігається з вмістом (виявлено: {detected})."
         )
 
     if content_type and content_type in ALLOWED_MIME_TYPES:
         mime_type = ALLOWED_MIME_TYPES[content_type]
         if mime_type != detected:
             raise ValueError(
-                f"Content-Type ({content_type}) does not match file content (detected: {detected})."
+                f"Content-Type ({content_type}) не збігається з вмістом файлу (виявлено: {detected})."
             )
 
     safe_filename = f"{uuid4().hex}.{detected}"
